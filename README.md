@@ -6,13 +6,19 @@ This library make connection between meteor backend and flutter app easily. Desi
 
 A simple usage example:
 
+First create an instance of MeteorClient in global scope so that it can be use anywhere in your project.
+
 ```dart
 import 'package:flutter/material.dart';
 import 'package:dart_meteor/dart_meteor.dart';
 
 MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
 void main() => runApp(MyApp());
+```
 
+In your StatefulWidget/StatelessWidget, thanks to [rxdart][rxdart], you can use FutuerBuilder or StreamBuilder to build your widget base on response from meteor's DDP server.
+
+```dart
 class MyApp extends StatefulWidget {
   @override
   _MyAppState createState() => _MyAppState();
@@ -118,21 +124,88 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-
 ```
 
-## Collections
-Prepare collection before use.
+## Make a method call to server
+
+Makeing a method call to server return a Future. You MUST handle **catchError** to prevent app from crashing if something wrong. You can also use it with a FutureBuilder.
+
+```dart
+meteor.call('helloMethod', []).then((result) {
+  setState(() {
+    _methodResult = result.toString();
+  });
+}).catchError((err) {
+  if (err is MeteorError) {
+    setState(() {
+      _methodResult = err.message;
+    });
+  }
+});
+```
+
+You can found an example project inside [/example][example].
+
+## Collections & Subscribe
+Prepare collection before use. You can use prepareCollection method in initState() or in main function.
+
 ```dart
 meteor.prepareCollection('your_collections');
 ```
+
 Then access it with
+
 ```dart
 meteor.collections['test']
+```
+
+which return rxdart's Observable that you can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
+
+```dart
+class YourWidget extends StatefulWidget {
+  YourWidget() {}
+
+  @override
+  _YourWidgetState createState() => _YourWidgetState();
+}
+
+class _YourWidgetState extends State<YourWidget> {
+  SubscriptionHandler _subscriptionHandler;
+
+  @override
+  void initState() {
+    super.initState();
+    meteor.prepareCollection('your_collection');
+    _subscriptionHandler = meteor.subscribe('your_pub', []);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _subscriptionHandler.stop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: meteor.collections['your_collection'],
+      builder:
+          (context, AsyncSnapshot<Map<String, dynamic>> snapshot) {
+        int docCount = 0;
+        if (snapshot.hasData) {
+          docCount = snapshot.data.length;
+        }
+        return Text('Total document count: $docCount');
+      },
+    );
+  }
+}
 ```
 
 ## Features and bugs
 
 Please file feature requests and bugs at the [issue tracker][tracker].
 
-[tracker]: http://example.com/issues/replaceme
+[tracker]: https://github.com/tanutapi/dart_meteor/issues
+[rxdart]: https://pub.dev/packages/rxdart
+[example]: https://github.com/tanutapi/dart_meteor/tree/master/example
