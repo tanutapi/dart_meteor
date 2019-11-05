@@ -1,12 +1,12 @@
 # A Meteor DDP library for Dart/Flutter developers.
 
-This library make connection between meteor backend and flutter app easily. Design to work seamlessly with StreamBuilder and FutureBuilder.
+This library makes a connection between the Meteor backend and the Flutter app simply. Design to work seamlessly with StreamBuilder and FutureBuilder.
 
 ## Usage
 
 A simple usage example:
 
-First create an instance of MeteorClient in global scope so that it can be use anywhere in your project.
+First, create an instance of MeteorClient in your app global scope so that it can be used anywhere in your project.
 
 ```dart
 import 'package:flutter/material.dart';
@@ -16,7 +16,7 @@ MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
 void main() => runApp(MyApp());
 ```
 
-In your StatefulWidget/StatelessWidget, thanks to [rxdart][rxdart], you can use FutuerBuilder or StreamBuilder to build your widget base on response from meteor's DDP server.
+In your StatefulWidget/StatelessWidget, thanks to [rxdart][rxdart], you can use FutuerBuilder or StreamBuilder to build your widget base on a response from meteor's DDP server.
 
 ```dart
 class MyApp extends StatefulWidget {
@@ -126,9 +126,9 @@ class _MyAppState extends State<MyApp> {
 }
 ```
 
-## Make a method call to server
+## Making a method call to your server
 
-Makeing a method call to server return a Future. You MUST handle **catchError** to prevent app from crashing if something wrong. You can also use it with a FutureBuilder.
+Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something went wrong. You can also use it with a FutureBuilder.
 
 ```dart
 meteor.call('helloMethod', []).then((result) {
@@ -146,8 +146,8 @@ meteor.call('helloMethod', []).then((result) {
 
 You can found an example project inside [/example][example].
 
-## Collections & Subscribe
-Prepare collection before use. You can use prepareCollection method in initState() or in main function.
+## Collections & Subscriptions
+Prepare your collections before use. You can use `prepareCollection` method in `initState()` or in your `main` function.
 
 ```dart
 meteor.prepareCollection('your_collections');
