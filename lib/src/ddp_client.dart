@@ -162,7 +162,8 @@ class DdpClient {
 
   void reconnect() {
     print('reconnect... ${_connectionStatus}');
-    if (_connectionStatus.status != DdpConnectionStatusValues.connected && _connectionStatus.status != DdpConnectionStatusValues.connecting) {
+    if (_connectionStatus.status != DdpConnectionStatusValues.connected &&
+        _connectionStatus.status != DdpConnectionStatusValues.connecting) {
       if (_scheduleReconnectTimer != null) {
         if (_scheduleReconnectTimer.isActive) {
           _scheduleReconnectTimer.cancel();
@@ -203,13 +204,15 @@ class DdpClient {
   }
 
   void _connect() async {
-    if (_connectionStatus.status != DdpConnectionStatusValues.connected && _connectionStatus.status != DdpConnectionStatusValues.connecting) {
+    if (_connectionStatus.status != DdpConnectionStatusValues.connected &&
+        _connectionStatus.status != DdpConnectionStatusValues.connecting) {
       _isTryToReconnect = true;
       _connectionStatus.status = DdpConnectionStatusValues.connecting;
       _connectionStatus.reason = null;
       _statusStreamController.sink.add(_connectionStatus);
       try {
-        WebSocket socket = await WebSocket.connect(_url).timeout(Duration(seconds: 5));
+        WebSocket socket =
+            await WebSocket.connect(_url).timeout(Duration(seconds: 5));
         _connectionStatus.retryCount = 0;
         _connectionStatus.retryTime = Duration(seconds: 1);
         _socket = socket;
@@ -221,14 +224,17 @@ class DdpClient {
         _connectionStatus.reason = err.toString();
         _statusStreamController.sink.add(_connectionStatus);
         _socket = null;
-        printDebug('ScheduleReconnect due to websocket exception while trying to connect');
+        printDebug(
+            'ScheduleReconnect due to websocket exception while trying to connect');
         _scheduleReconnect();
-      };
+      }
+      ;
     }
   }
 
   void _scheduleReconnect() {
-    if (_connectionStatus.status == DdpConnectionStatusValues.offline || _connectionStatus.status == DdpConnectionStatusValues.failed) {
+    if (_connectionStatus.status == DdpConnectionStatusValues.offline ||
+        _connectionStatus.status == DdpConnectionStatusValues.failed) {
       _connectionStatus.retryCount++;
       if (_connectionStatus.retryCount <= _maxRetryCount) {
         _connectionStatus.connected = false;
@@ -287,7 +293,8 @@ class DdpClient {
           printDebug('Disconnect due to not receive PONG');
           printDebug('PING was sent since $sentTime');
           printDebug('Current time is ${DateTime.now()}');
-          printDebug('Diff since PING sent is ${DateTime.now().difference(sentTime)}');
+          printDebug(
+              'Diff since PING sent is ${DateTime.now().difference(sentTime)}');
           disconnect();
         }
       });
