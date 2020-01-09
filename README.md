@@ -4,6 +4,8 @@ This library makes a connection between the Meteor backend and the Flutter app s
 
 ## Usage
 
+I just publish a post on Medium showing how to handle connection status, user authentication, and subscriptions. Please check https://medium.com/@tanutapi/writing-flutter-mobile-application-with-meteor-backend-643d2c1947d0?source=friends_link&sk=52ce2fa2603934e7395e2d19dd54e06c
+
 A simple usage example:
 
 First, create an instance of MeteorClient in your app global scope so that it can be used anywhere in your project.
