@@ -1,3 +1,7 @@
+## 1.0.7
+
+- Allow passing email to loginWithPassword.
+
 ## 1.0.5 - 1.0.6
 
 - Pin rxdart version to 0.22.6
