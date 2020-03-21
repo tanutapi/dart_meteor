@@ -380,7 +380,9 @@ class MeteorClient {
   /// Log the user in with a password.
   ///
   /// [user]
-  /// Either a string interpreted as a username or an email; or an object with a single key: email, username or id. Username or email match in a case insensitive manner.
+  /// Either a string interpreted as a username or an email; 
+  /// or an object with a single key: email, username or id. 
+  /// Username or email match in a case insensitive manner.
   ///
   /// [password] password
   ///
@@ -393,9 +395,17 @@ class MeteorClient {
     Completer<MeteorClientLoginResult> completer = Completer();
     _loggingIn = true;
     _loggingInSubject.add(_loggingIn);
+
+    var selector;
+    if (!user.contains('@')) {
+      selector = {'email': user};
+    } else {
+      selector = {'username': user};
+    }
+
     call('login', [
       {
-        'user': {'username': user},
+        'user': selector,
         'password': {
           'digest': sha256.convert(utf8.encode(password)).toString(),
           'algorithm': 'sha-256'
