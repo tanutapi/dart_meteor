@@ -398,9 +398,9 @@ class MeteorClient {
 
     var selector;
     if (!user.contains('@')) {
-      selector = {'email': user};
-    } else {
       selector = {'username': user};
+    } else {
+      selector = {'email': user};
     }
 
     call('login', [

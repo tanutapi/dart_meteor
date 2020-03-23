@@ -1,6 +1,6 @@
 name: dart_meteor
 description: This library make connection between meteor backend and flutter app easily. Design to work seamlessly with StreamBuilder and FutureBuilder.
-version: 1.0.7
+version: 1.0.8
 homepage: https://github.com/tanutapi/dart_meteor
 author: Tanut Apiwong <tanutapi@gmail.com>
 

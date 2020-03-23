@@ -1,6 +1,10 @@
-## 1.0.7
+## 1.0.8
 
 - Allow passing email to loginWithPassword.
+
+## 1.0.7
+
+- **Don't use this release**
 
 ## 1.0.5 - 1.0.6
 
