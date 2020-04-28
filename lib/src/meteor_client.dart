@@ -1,3 +1,4 @@
+import 'dart:html';
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -372,6 +373,9 @@ class MeteorClient {
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+      window.localStorage['token'] = result['token'];
+      window.localStorage['tokenExpires'] =
+          result['tokenExpires']['\$date'].toString();
       _loggingIn = false;
       _loggingInSubject.add(_loggingIn);
       _userIdSubject.add(_userId);
@@ -421,6 +425,9 @@ class MeteorClient {
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+      window.localStorage['token'] = result['token'];
+      window.localStorage['tokenExpires'] =
+          result['tokenExpires']['\$date'].toString();
       _loggingIn = false;
       _loggingInSubject.add(_loggingIn);
       _userIdSubject.add(_userId);
@@ -455,6 +462,13 @@ class MeteorClient {
   }
 
   Future<MeteorClientLoginResult> _loginWithExistingToken() {
+    if (window.localStorage.containsKey('token') &&
+        window.localStorage.containsKey('tokenExpires')) {
+      _token = window.localStorage['token'];
+      _tokenExpires = DateTime.fromMillisecondsSinceEpoch(
+          int.parse(window.localStorage['tokenExpires']));
+    }
+
     Completer<MeteorClientLoginResult> completer = Completer();
     print('Trying to login with existing token...');
     print('Token is ${_token}');

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:html';
 
-const debug = true;
+const debug = false;
 
 enum DdpConnectionStatusValues {
   connected,
