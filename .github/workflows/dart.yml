@@ -31,7 +31,7 @@ jobs:
 #           --health-retries 5  
 
     steps:
-      - run: sudo apt-get install telnet -y
+      - run: apt-get install telnet -y
       - run: which telnet
       - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat -d
       - run: echo 'exit' | /usr/bin/telnet 127.0.0.1 27017 || true
