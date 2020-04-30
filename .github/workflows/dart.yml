@@ -6,13 +6,14 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     container: 
-      image: docker
+      image: tmaier/docker-compose
     steps:
       - name: Clone simple-meteor-chat
         uses: actions/checkout@v2
         with:
           repository: 'tanutapi/simple-meteor-chat'
-      - run: |
+      - name: Run simple-meteor-chat
+        run: |
           ls
           pwd
           docker-compose up
