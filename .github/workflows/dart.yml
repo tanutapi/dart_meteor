@@ -31,7 +31,7 @@ jobs:
 #           --health-retries 5  
 
     steps:
-      - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat
+      - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://mongo:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat
 
 #   test:
 #     runs-on: ubuntu-latest
