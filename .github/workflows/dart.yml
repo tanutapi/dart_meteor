@@ -16,8 +16,8 @@ jobs:
         ports:
           - 3000:80
         env:
-          MONGO_URL: mongodb://localhost:27017
-          ROOT_URL: http://localhost:3000
+          MONGO_URL: mongodb://mongo:27017
+          ROOT_URL: http://webapp:3000
           
     steps:
       - run: sudo apt-get update
