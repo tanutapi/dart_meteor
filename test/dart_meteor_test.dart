@@ -12,29 +12,25 @@ void main() {
     tearDown(() {
       meteor.disconnect();
     });
-//
-//    test('meteor.isClient', () {
-//      expect(meteor.isClient(), isTrue);
-//    });
-//
-//    test('meteor.isServer', () {
-//      expect(meteor.isServer(), isFalse);
-//    });
-//
-//    test('meteor.isCordova', () {
-//      expect(meteor.isCordova(), isFalse);
-//    });
+
+    test('meteor.isClient', () {
+      expect(meteor.isClient(), isTrue);
+    });
+
+    test('meteor.isServer', () {
+      expect(meteor.isServer(), isFalse);
+    });
+
+    test('meteor.isCordova', () {
+      expect(meteor.isCordova(), isFalse);
+    });
 
     test('meteor.loginWithPassword', () async {
       await Future.delayed(Duration(seconds: 5));
-      try {
-        MeteorClientLoginResult result =
-            await meteor.loginWithPassword('user1', 'password1');
-        print('MeteorClientLoginResult: ' + result.toString());
-        expect(meteor.userId(), isNotNull);
-      } catch (e) {
-        print(e);
-      }
+      MeteorClientLoginResult result =
+          await meteor.loginWithPassword('user1', 'password1');
+      print('MeteorClientLoginResult: ' + result.toString());
+      expect(meteor.userId(), isNotNull);
     });
   });
 }
