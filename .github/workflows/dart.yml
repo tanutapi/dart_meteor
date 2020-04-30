@@ -12,6 +12,8 @@ jobs:
         image: mongo
         ports:
           - 27017:27017
+        options: >-
+          --health-cmd echo 'db.stats().ok' | mongo localhost:27017/test --quiet
       webapp:
         image: tanutapi/simple-meteor-chat
         ports:
