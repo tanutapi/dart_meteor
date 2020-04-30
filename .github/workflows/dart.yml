@@ -5,13 +5,13 @@ on: [push]
 jobs:
   chat:
     runs-on: ubuntu-latest
-    container: docker
+#     container: docker
 
-    services:
-      mongo:
-        image: mongo
-        ports:
-          - 27017:27017
+#     services:
+#       mongo:
+#         image: mongo
+#         ports:
+#           - 27017:27017
 
     steps:
       - run: sudo apt-get install telnet -y
