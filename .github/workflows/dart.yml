@@ -30,6 +30,6 @@ jobs:
       - run: export PATH="$PATH:/usr/lib/dart/bin"
       - uses: actions/checkout@v1
       - name: Install dependencies
-        run: pub get
+        run: PATH="$PATH:/usr/lib/dart/bin" pub get
       - name: Run tests
-        run: pub run test -p chrome
+        run: PATH="$PATH:/usr/lib/dart/bin" pub run test -p chrome
