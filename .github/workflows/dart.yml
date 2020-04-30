@@ -3,6 +3,19 @@ name: Testing
 on: [push]
 
 jobs:
+  chat:
+    runs-on: ubuntu-latest
+    image: docker
+
+    services:
+      mongo:
+        image: mongo
+        ports:
+          - 27017:27017
+
+    steps:
+      - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://mongo:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat
+
   test:
     runs-on: ubuntu-latest
     
@@ -10,7 +23,7 @@ jobs:
       mongo:
         image: mongo
         ports: 
-          - 27017
+          - 27017:27017
       webapp:
         image: tanutapi/simple-meteor-chat
         ports:
