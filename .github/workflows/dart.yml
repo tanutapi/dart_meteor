@@ -14,8 +14,9 @@ jobs:
           - 27017:27017
 
     steps:
-      - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat -d
-      - run: telnet localhost 3000
+      - run: telnet 127.0.0.1 27017
+#       - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat -d
+#       - run: telnet localhost 3000
 
 #   test:
 #     runs-on: ubuntu-latest
