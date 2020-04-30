@@ -14,6 +14,9 @@ jobs:
           - 27017:27017
         options: >-
           --health-cmd echo 'db.stats().ok' | mongo localhost:27017/test --quiet
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       webapp:
         image: tanutapi/simple-meteor-chat
         ports:
