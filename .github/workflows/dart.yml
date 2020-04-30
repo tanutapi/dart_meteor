@@ -5,7 +5,7 @@ on: [push]
 jobs:
   chat:
     runs-on: ubuntu-latest
-#     container: docker
+    container: docker
 
     services:
       mongo:
@@ -17,27 +17,26 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      webapp:
-        image: tanutapi/simple-meteor-chat
-        ports:
-          - 3000:80
-        env:
-          MONGO_URL: mongodb://mongo:27017
-          ROOT_URL: http://webapp:3000
-        options: >-
-          --health-cmd "echo 'exit' | /usr/bin/telnet localhost 3000 || true"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5  
+#       webapp:
+#         image: tanutapi/simple-meteor-chat
+#         ports:
+#           - 3000:80
+#         env:
+#           MONGO_URL: mongodb://mongo:27017
+#           ROOT_URL: http://webapp:3000
+#         options: >-
+#           --health-cmd "echo 'exit' | /usr/bin/telnet localhost 3000 || true"
+#           --health-interval 10s
+#           --health-timeout 5s
+#           --health-retries 5  
 
     steps:
       - run: sudo apt-get install telnet -y
       - run: which telnet
+      - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat -d
       - run: echo 'exit' | /usr/bin/telnet 127.0.0.1 27017 || true
-      - run: echo 'exit' | /usr/bin/telnet 127.0.0.1 80 || true
       - run: echo 'exit' | /usr/bin/telnet 127.0.0.1 3000 || true
-#       - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://webapp:3000" tanutapi/simple-meteor-chat -d
-#       - run: telnet localhost 3000
+      - run: echo 'exit' | /usr/bin/telnet 127.0.0.1 80 || true
 
 #   test:
 #     runs-on: ubuntu-latest
