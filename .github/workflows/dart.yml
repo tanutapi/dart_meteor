@@ -1,9 +1,18 @@
-name: Dart CI
+name: Testing
 
 on: [push]
 
 jobs:
-  build:
+  prepare:
+    runs-on: ubuntu-latest
+    container: 
+      image: docker/docker
+    steps:
+      - run: git clone https://github.com/tanutapi/simple-meteor-chat.git
+      - run: cd simple-meteor-chat
+      - run: docker-compose up
+    
+  test:
 
     runs-on: ubuntu-latest
 
