@@ -5,7 +5,7 @@ on: [push]
 jobs:
   chat:
     runs-on: ubuntu-latest
-    container: docker
+#     container: docker
 
     services:
       mongo:
