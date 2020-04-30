@@ -33,6 +33,9 @@ jobs:
     steps:
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@1.2.0
+      - run: docker ps
+      - run: sleep 5
+      - run: docker ps
       - run: docker run -p 3000:80  -e "MONGO_URL=mongodb://localhost:27017" -e "ROOT_URL=http://localhost:3000" tanutapi/simple-meteor-chat
 
 #   test:
