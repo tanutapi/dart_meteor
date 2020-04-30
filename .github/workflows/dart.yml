@@ -8,11 +8,11 @@ jobs:
     container: 
       image: docker
     steps:
-      - run: |
-          apt-get install git -y
-          git clone https://github.com/tanutapi/simple-meteor-chat.git
-          cd simple-meteor-chat
-          docker-compose up
+      - name: Clone simple-meteor-chat
+        uses: actions/checkout@v2
+        with:
+          repository: 'tanutapi/simple-meteor-chat'
+      - run: docker-compose up
     
   test:
 
