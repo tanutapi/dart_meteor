@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Environment', () {
-    MeteorClient meteor = MeteorClient.connect(url: 'ws://webapp:3000');
+    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
 
     test('meteor.isClient', () {
       expect(meteor.isClient(), isTrue);
@@ -19,7 +19,7 @@ void main() {
   });
 
   group('Login', () {
-    MeteorClient meteor = MeteorClient.connect(url: 'ws://webapp:3000');
+    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
 
     setUp(() async {
       meteor.reconnect();

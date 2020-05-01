@@ -5,30 +5,6 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
-#     container: docker
-
-#     services:
-#       mongo:
-#         image: mongo
-#         ports:
-#           - 27017:27017
-#         options: >-
-#           --health-cmd "echo 'db.stats().ok' | mongo localhost:27017/test --quiet"
-#           --health-interval 10s
-#           --health-timeout 5s
-#           --health-retries 5
-#       webapp:
-#         image: tanutapi/simple-meteor-chat
-#         ports:
-#           - 3000:80
-#         env:
-#           MONGO_URL: mongodb://mongo:27017
-#           ROOT_URL: http://webapp:3000
-#         options: >-
-#           --health-cmd "echo 'exit' | /usr/bin/telnet localhost 3000 || true"
-#           --health-interval 10s
-#           --health-timeout 5s
-#           --health-retries 5  
 
     steps:
       - name: Prepare docker network
@@ -47,8 +23,6 @@ jobs:
       - run: sudo apt-get install apt-transport-https curl -y
       - name: Check webapp
         run: curl 127.0.0.1:3000
-      - name: Check webapp
-        run: curl localhost:3000
       - run: sudo sh -c 'wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -'
       - run: sudo sh -c 'wget -qO- https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list'
       - run: sudo apt-get update
