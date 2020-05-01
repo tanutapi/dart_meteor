@@ -1,6 +1,6 @@
-Tests:
- - Flutter iOS/Android ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
- - Flutter Web ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=web)
+For VM, Flutter iOS/Android (master branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
+
+For Flutter Web (web branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=web)
 
 # A Meteor DDP library for Dart/Flutter developers.
 
