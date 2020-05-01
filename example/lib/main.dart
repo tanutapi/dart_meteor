@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dart_meteor/dart_meteor.dart';
+import 'package:dart_meteor_web/dart_meteor_web.dart';
 
-MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
+MeteorClient meteor = MeteorClient.connect(url: 'http://localhost:3000');
 void main() => runApp(MyApp());
 
 class MyApp extends StatefulWidget {
