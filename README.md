@@ -1,3 +1,7 @@
+Tests:
+ - Flutter iOS/Android ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
+ - Flutter Web ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=web)
+
 # A Meteor DDP library for Dart/Flutter developers.
 
 This library makes a connection between the Meteor backend and the Flutter app simply. Design to work seamlessly with StreamBuilder and FutureBuilder.
