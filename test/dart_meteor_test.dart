@@ -1,4 +1,4 @@
-import 'package:dart_meteor/dart_meteor.dart';
+import 'package:dart_meteor_web/dart_meteor_web.dart';
 import 'package:test/test.dart';
 
 void main() {
