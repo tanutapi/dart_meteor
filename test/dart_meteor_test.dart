@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dart_meteor/dart_meteor.dart';
 import 'package:test/test.dart';
 
@@ -32,9 +34,26 @@ void main() {
 
     test('meteor.loginWithPassword', () async {
       MeteorClientLoginResult result =
-      await meteor.loginWithPassword('user1', 'password1');
+          await meteor.loginWithPassword('user1', 'password1');
       print('MeteorClientLoginResult: ' + result.toString());
       expect(meteor.userId(), isNotNull);
+    });
+
+    test('meteor.subscribe with onReady', () async {
+      var completer = Completer();
+      expect(completer.future, completion(true));
+      await meteor.subscribe(
+        'messages',
+        [],
+        onReady: () {
+          print('onReady is called.');
+          completer.complete(true);
+        },
+      );
+      await Future.delayed(Duration(seconds: 5));
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
     });
   });
 }
