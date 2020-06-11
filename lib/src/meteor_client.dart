@@ -380,8 +380,8 @@ class MeteorClient {
   /// Log the user in with a password.
   ///
   /// [user]
-  /// Either a string interpreted as a username or an email; 
-  /// or an object with a single key: email, username or id. 
+  /// Either a string interpreted as a username or an email;
+  /// or an object with a single key: email, username or id.
   /// Username or email match in a case insensitive manner.
   ///
   /// [password] password
