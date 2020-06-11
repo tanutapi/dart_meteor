@@ -10,7 +10,7 @@ jobs:
       - name: Prepare docker network
         run: docker network create test_net
       - name: Start MongoDB
-        run: docker run --rm --name mongodb --network test_net -d mongo        
+        run: docker run --rm --name mongodb --network test_net -d mongo
       - run: docker ps
       - run: sleep 5
       - run: docker ps
