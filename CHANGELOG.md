@@ -1,3 +1,7 @@
+## 1.1.0
+
+- Pin rxdart to 0.24.1 and crypto to 2.1.5.
+
 ## 1.0.8
 
 - Allow passing email to loginWithPassword.
