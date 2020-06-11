@@ -9,3 +9,10 @@ build/
 
 # Directory created by dartdoc
 doc/api/
+
+# User specific
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/vcs.xml
+.idea/jsLibraryMappings.xml

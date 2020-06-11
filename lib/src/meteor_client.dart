@@ -1,7 +1,9 @@
+import 'dart:html';
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:intl/intl.dart';
 import 'ddp_client.dart';
 
 class MeteorClientLoginResult {
@@ -9,6 +11,11 @@ class MeteorClientLoginResult {
   String token;
   DateTime tokenExpires;
   MeteorClientLoginResult({this.userId, this.token, this.tokenExpires});
+
+  @override
+  String toString() {
+    return 'userId: $userId, token: $token, tokenExpires: $tokenExpires';
+  }
 }
 
 class MeteorError extends Error {
@@ -47,6 +54,8 @@ stack: $stack
 ''';
   }
 }
+
+DateFormat jsDateFormatter = DateFormat('EEE MMM dd yyyy HH:mm:ss');
 
 class MeteorClient {
   DdpClient connection;
@@ -367,6 +376,13 @@ class MeteorClient {
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+
+      // Save to localStorage
+      window.localStorage['Meteor.loginToken'] = _token;
+      window.localStorage['Meteor.loginTokenExpires'] =
+          jsDateFormatter.format(_tokenExpires);
+      window.localStorage['Meteor.userId'] = _userId;
+
       _loggingIn = false;
       _loggingInSubject.add(_loggingIn);
       _userIdSubject.add(_userId);
@@ -416,6 +432,13 @@ class MeteorClient {
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+
+      // Save to localStorage
+      window.localStorage['Meteor.loginToken'] = _token;
+      window.localStorage['Meteor.loginTokenExpires'] =
+          jsDateFormatter.format(_tokenExpires);
+      window.localStorage['Meteor.userId'] = _userId;
+
       _loggingIn = false;
       _loggingInSubject.add(_loggingIn);
       _userIdSubject.add(_userId);
@@ -450,6 +473,14 @@ class MeteorClient {
   }
 
   Future<MeteorClientLoginResult> _loginWithExistingToken() {
+    // Load existing token from localStorage
+    if (window.localStorage.containsKey('Meteor.loginToken') &&
+        window.localStorage.containsKey('Meteor.loginTokenExpires')) {
+      _token = window.localStorage['Meteor.loginToken'];
+      _tokenExpires = jsDateFormatter
+          .parse(window.localStorage['Meteor.loginTokenExpires']);
+    }
+
     Completer<MeteorClientLoginResult> completer = Completer();
     print('Trying to login with existing token...');
     print('Token is ${_token}');
@@ -472,6 +503,13 @@ class MeteorClient {
         _token = result['token'];
         _tokenExpires = DateTime.fromMillisecondsSinceEpoch(
             result['tokenExpires']['\$date']);
+
+        // Save to localStorage
+        window.localStorage['Meteor.loginToken'] = _token;
+        window.localStorage['Meteor.loginTokenExpires'] =
+            jsDateFormatter.format(_tokenExpires);
+        window.localStorage['Meteor.userId'] = _userId;
+
         _loggingIn = false;
         _loggingInSubject.add(_loggingIn);
         _userIdSubject.add(_userId);

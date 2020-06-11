@@ -33,4 +33,4 @@ jobs:
       - name: Install dependencies
         run: PATH="$PATH:/usr/lib/dart/bin" pub get
       - name: Run tests
-        run: PATH="$PATH:/usr/lib/dart/bin" pub run test
+        run: PATH="$PATH:/usr/lib/dart/bin" pub run test -p chrome

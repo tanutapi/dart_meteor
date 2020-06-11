@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:async';
 import 'dart:math';
+import 'dart:html';
 
-const debug = true;
+const debug = false;
 
 enum DdpConnectionStatusValues {
   connected,
@@ -178,12 +178,8 @@ class DdpClient {
     printDebug('Start of disconnect()');
     _isTryToReconnect = false;
     if (_socket != null) {
-      _socket.close().then((value) {
-        _socket = null;
-      }).catchError((err) {
-        printDebug(err);
-        _socket = null;
-      });
+      _socket.close();
+      _socket = null;
     }
     // Cancel ping-pong timer
     if (_pingPeriodicTimer != null) {
@@ -212,12 +208,13 @@ class DdpClient {
       _statusStreamController.sink.add(_connectionStatus);
       try {
         WebSocket socket =
-            await WebSocket.connect(_url).timeout(Duration(seconds: 5));
+            await WebSocket(_url); //.timeout(Duration(seconds: 5));
         _connectionStatus.retryCount = 0;
         _connectionStatus.retryTime = Duration(seconds: 1);
         _socket = socket;
-        _socket.listen(_onData,
-            onDone: _onDone, onError: _onError, cancelOnError: true);
+        _socket.onMessage.listen(_onData);
+        _socket.onError.listen(_onError);
+        _socket.onClose.listen(_onDone);
       } catch (err) {
         print(err);
         _connectionStatus.status = DdpConnectionStatusValues.failed;
@@ -276,7 +273,7 @@ class DdpClient {
       }
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket.add(msg);
+      _socket.send(msg);
     }
   }
 
@@ -284,7 +281,7 @@ class DdpClient {
     if (_socket != null) {
       var msg = json.encode({'msg': 'ping'});
       printDebug('Send: $msg');
-      _socket.add(msg);
+      _socket.send(msg);
       DateTime sentTime = DateTime.now();
       _flagToBeResetAtPongMsg = true;
       Future.delayed(Duration(seconds: PONG_WITHIN_SEC), () {
@@ -305,7 +302,7 @@ class DdpClient {
     if (_socket != null) {
       var msg = json.encode({'msg': 'pong'});
       printDebug('Send: $msg');
-      _socket.add(msg);
+      _socket.send(msg);
     }
   }
 
@@ -319,7 +316,7 @@ class DdpClient {
       };
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket.add(msg);
+      _socket.send(msg);
     }
   }
 
@@ -331,7 +328,7 @@ class DdpClient {
       };
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket.add(msg);
+      _socket.send(msg);
     }
   }
 
@@ -349,13 +346,13 @@ class DdpClient {
       }
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket.add(msg);
+      _socket.send(msg);
     }
   }
 
-  void _onData(dynamic data) {
-    printDebug('Recv: $data');
-    var dataMap = json.decode(data) ?? {};
+  void _onData(MessageEvent event) {
+    printDebug('Recv: ${event.data}');
+    var dataMap = json.decode(event.data) ?? {};
     var msg = dataMap['msg'];
     if (_connectionStatus.status == DdpConnectionStatusValues.connecting) {
       if (dataMap['server_id'] != null) {
@@ -457,7 +454,7 @@ class DdpClient {
     }
   }
 
-  void _onDone() {
+  void _onDone(CloseEvent event) {
     _socket = null;
     if (_isTryToReconnect) {
       printDebug('Disconnect due to websocket onDone');
@@ -469,7 +466,7 @@ class DdpClient {
     }
   }
 
-  void _onError(dynamic error) {
+  void _onError(Event event) {
     _socket = null;
     if (_isTryToReconnect) {
       printDebug('Disconnect due to websocket onError');
