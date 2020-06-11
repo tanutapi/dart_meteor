@@ -52,16 +52,16 @@ class MeteorClient {
   DdpClient connection;
 
   BehaviorSubject<DdpConnectionStatus> _statusSubject = BehaviorSubject();
-  Observable<DdpConnectionStatus> _statusStream;
+  Stream<DdpConnectionStatus> _statusStream;
 
   BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
-  Observable<bool> _loggingInStream;
+  Stream<bool> _loggingInStream;
 
   BehaviorSubject<String> _userIdSubject = BehaviorSubject();
-  Observable<String> _userIdStream;
+  Stream<String> _userIdStream;
 
   BehaviorSubject<Map<String, dynamic>> _userSubject = BehaviorSubject();
-  Observable<Map<String, dynamic>> _userStream;
+  Stream<Map<String, dynamic>> _userStream;
 
   String _userId;
   String _token;
@@ -73,7 +73,7 @@ class MeteorClient {
   /// Meteor.collections
   Map<String, Map<String, dynamic>> _collections = {};
   Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject = {};
-  Map<String, Observable<Map<String, dynamic>>> collections = {};
+  Map<String, Stream<Map<String, dynamic>>> collections = {};
 
   MeteorClient.connect({String url}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
@@ -287,7 +287,7 @@ class MeteorClient {
   // Server Connections
 
   /// Get the current connection status.
-  Observable<DdpConnectionStatus> status() {
+  Stream<DdpConnectionStatus> status() {
     return _statusStream;
   }
 
@@ -306,7 +306,7 @@ class MeteorClient {
   // Accounts
 
   /// Get the current user record, or null if no user is logged in. A reactive data source.
-  Observable<Map<String, dynamic>> user() {
+  Stream<Map<String, dynamic>> user() {
     return _userStream;
   }
 
@@ -315,7 +315,7 @@ class MeteorClient {
   }
 
   /// Get the current user id, or null if no user is logged in. A reactive data source.
-  Observable<String> userId() {
+  Stream<String> userId() {
     return _userIdStream;
   }
 
@@ -324,11 +324,11 @@ class MeteorClient {
   }
 
   /// A Map containing user documents.
-  Observable<Map<String, dynamic>> get users => collections['users'];
+  Stream<Map<String, dynamic>> get users => collections['users'];
 
   /// True if a login method (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser) is currently in progress.
   /// A reactive data source.
-  Observable<bool> loggingIn() {
+  Stream<bool> loggingIn() {
     return _loggingInStream;
   }
 
@@ -380,8 +380,8 @@ class MeteorClient {
   /// Log the user in with a password.
   ///
   /// [user]
-  /// Either a string interpreted as a username or an email; 
-  /// or an object with a single key: email, username or id. 
+  /// Either a string interpreted as a username or an email;
+  /// or an object with a single key: email, username or id.
   /// Username or email match in a case insensitive manner.
   ///
   /// [password] password
