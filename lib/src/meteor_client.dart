@@ -13,7 +13,7 @@ class MeteorClientLoginResult {
 
 class MeteorError extends Error {
   String details;
-  int error;
+  dynamic error;
   String errorType;
   bool isClientSafe;
   String message;
@@ -23,9 +23,7 @@ class MeteorError extends Error {
   MeteorError.parse(Map<String, dynamic> object) {
     try {
       details = object['details']?.toString();
-      error = object['error'] is String
-          ? int.parse(object['error'])
-          : object['error'];
+      error = error = int.tryParse(object['error']) ?? object['error'];
       errorType = object['errorType']?.toString();
       isClientSafe = object['isClientSafe'] == true;
       message = object['message']?.toString();
