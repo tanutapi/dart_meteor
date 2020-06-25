@@ -23,7 +23,9 @@ class MeteorError extends Error {
   MeteorError.parse(Map<String, dynamic> object) {
     try {
       details = object['details']?.toString();
-      error = error = int.tryParse(object['error']) ?? object['error'];
+      error = object['error'] is String
+          ? int.tryParse(object['error']) ?? object['error']
+          : object['error'];
       errorType = object['errorType']?.toString();
       isClientSafe = object['isClientSafe'] == true;
       message = object['message']?.toString();
