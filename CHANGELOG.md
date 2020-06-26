@@ -1,3 +1,7 @@
+## 1.1.1
+
+- Allows both int and String for MeteorError.error
+
 ## 1.1.0
 
 - Pin rxdart to 0.24.1 and crypto to 2.1.5.
