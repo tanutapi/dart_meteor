@@ -151,7 +151,7 @@ class MeteorClient {
 
     connection.onReconnect((OnReconnectionCallback reconnectionCallback) {
       print('connection.onReconnect()');
-      _loginWithExistingToken().catchError((error) {});
+      loginWithToken(token: _token, tokenExpires: _tokenExpires).catchError((error) {});
     });
 
     _statusStream.listen((ddpStatus) {
@@ -392,25 +392,50 @@ class MeteorClient {
   Future<MeteorClientLoginResult> loginWithPassword(
       String user, String password,
       {int delayOnLoginErrorSecond = 0}) {
-    Completer<MeteorClientLoginResult> completer = Completer();
-    _loggingIn = true;
-    _loggingInSubject.add(_loggingIn);
-
-    var selector;
-    if (!user.contains('@')) {
-      selector = {'username': user};
-    } else {
-      selector = {'email': user};
-    }
-
-    call('login', [
+    return login(
       {
-        'user': selector,
+        'user': !user.contains('@') ? {'username': user} : {'email': user},
         'password': {
           'digest': sha256.convert(utf8.encode(password)).toString(),
           'algorithm': 'sha-256'
         },
-      }
+      },
+      delayOnLoginErrorSecond: delayOnLoginErrorSecond,
+    );
+  }
+
+  Future<MeteorClientLoginResult> loginWithToken(
+      {String token, DateTime tokenExpires}) {
+    var completer = Completer<MeteorClientLoginResult>();
+
+    _token = token;
+    _tokenExpires = tokenExpires ?? DateTime.now().add(Duration(hours: 1));
+
+    print('Trying to login with existing token...');
+    print('Token is ${_token}');
+    if (_tokenExpires != null) {
+      print('Token expires ${_tokenExpires.toString()}');
+      print('now is ${DateTime.now()}');
+      print('Token expires is after now ${_tokenExpires.isAfter(DateTime.now())}');
+    }
+
+    if (_token != null &&
+        _tokenExpires != null &&
+        _tokenExpires.isAfter(DateTime.now())) {
+      return login({'resume': _token});
+    } else {
+      completer.complete(null);
+    }
+    return completer.future;
+  }
+
+  Future<MeteorClientLoginResult> login(Map<String, dynamic> loginData, {int delayOnLoginErrorSecond = 0}) {
+    var completer = Completer<MeteorClientLoginResult>();
+    _loggingIn = true;
+    _loggingInSubject.add(_loggingIn);
+
+    call('login', [
+      loginData,
     ]).then((result) {
       _userId = result['id'];
       _token = result['token'];
@@ -435,63 +460,6 @@ class MeteorClient {
         completer.completeError(error);
       });
     });
-    return completer.future;
-  }
-
-  Future<MeteorClientLoginResult> loginWithToken(
-      {String token, DateTime tokenExpires}) {
-    _token = token;
-    if (tokenExpires == null) {
-      _tokenExpires = DateTime.now().add(Duration(hours: 1));
-    } else {
-      _tokenExpires = tokenExpires;
-    }
-    return _loginWithExistingToken();
-  }
-
-  Future<MeteorClientLoginResult> _loginWithExistingToken() {
-    Completer<MeteorClientLoginResult> completer = Completer();
-    print('Trying to login with existing token...');
-    print('Token is ${_token}');
-    if (_tokenExpires != null) {
-      print('Token expires ${_tokenExpires.toString()}');
-      print('now is ${DateTime.now()}');
-      print(
-          'Token expires is after now ${_tokenExpires.isAfter(DateTime.now())}');
-    }
-
-    if (_token != null &&
-        _tokenExpires != null &&
-        _tokenExpires.isAfter(DateTime.now())) {
-      _loggingIn = true;
-      _loggingInSubject.add(_loggingIn);
-      call('login', [
-        {'resume': _token}
-      ]).then((result) {
-        _userId = result['id'];
-        _token = result['token'];
-        _tokenExpires = DateTime.fromMillisecondsSinceEpoch(
-            result['tokenExpires']['\$date']);
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
-        _userIdSubject.add(_userId);
-        completer.complete(MeteorClientLoginResult(
-          userId: _userId,
-          token: _token,
-          tokenExpires: _tokenExpires,
-        ));
-      }).catchError((error) {
-        _userId = null;
-        _token = null;
-        _tokenExpires = null;
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
-        _userIdSubject.add(_userId);
-        completer.completeError(error);
-      });
-    } else {
-      completer.complete(null);
-    }
     return completer.future;
   }
 
