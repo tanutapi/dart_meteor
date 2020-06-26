@@ -20,6 +20,37 @@ void main() {
     });
   });
 
+  group('MeteorError', () {
+    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+
+    setUp(() async {
+      meteor.reconnect();
+      await Future.delayed(Duration(seconds: 2));
+    });
+
+    tearDown(() {
+      meteor.disconnect();
+    });
+
+    test('It should throw error as integer', () async {
+      try {
+        await meteor.call('methodThatThrowErrorAsInt', []);
+      } on MeteorError catch (e) {
+        expect(e.error, 500);
+        expect(e.reason, 'This is an error');
+      }
+    });
+
+    test('It should throw error as string', () async {
+      try {
+        await meteor.call('methodThatThrowErrorAsString', []);
+      } on MeteorError catch (e) {
+        expect(e.error, 'error');
+        expect(e.reason, 'This is an error');
+      }
+    });
+  });
+
   group('Login', () {
     MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
 
