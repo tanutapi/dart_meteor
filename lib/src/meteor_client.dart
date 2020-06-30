@@ -291,6 +291,11 @@ class MeteorClient {
     return _statusStream;
   }
 
+  /// Get current connection status value.
+  DdpConnectionStatus statusCurrentValue() {
+    return _statusSubject.value;
+  }
+
   /// Force an immediate reconnection attempt if the client is not connected to the server.
   /// This method does nothing if the client is already connected.
   void reconnect() {
