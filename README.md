@@ -182,7 +182,7 @@ class _YourWidgetState extends State<YourWidget> {
   void initState() {
     super.initState();
     meteor.prepareCollection('your_collection');
-    _subscriptionHandler = meteor.subscribe('your_pub', []);
+    _subscriptionHandler = meteor.subscribe('your_pub', ['param1', 'param2']);
   }
 
   @override

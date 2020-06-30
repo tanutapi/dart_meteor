@@ -75,7 +75,7 @@ void main() {
       expect(completer.future, completion(true));
       await meteor.subscribe(
         'messages',
-        [],
+        params: [],
         onReady: () {
           print('onReady is called.');
           completer.complete(true);
