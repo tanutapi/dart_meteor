@@ -73,7 +73,7 @@ class MeteorClient {
   /// Meteor.collections
   Map<String, Map<String, dynamic>> _collections = {};
   Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject = {};
-  Map<String, Stream<Map<String, dynamic>>> collections = {};
+  Map<String, Stream<Map<String, dynamic>>> _collectionStreams = {};
 
   MeteorClient.connect({String url}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
@@ -98,7 +98,7 @@ class MeteorClient {
     _userIdStream = _userIdSubject.stream;
     _userStream = _userSubject.stream;
 
-    prepareCollection('users');
+    getOrPrepareCollection('users');
 
     connection.dataStreamController.stream.listen((data) {
       String collectionName = data['collection'];
@@ -112,7 +112,7 @@ class MeteorClient {
         _collections[collectionName] = {};
         _collectionsSubject[collectionName] =
             BehaviorSubject<Map<String, dynamic>>();
-        collections[collectionName] =
+        _collectionStreams[collectionName] =
             _collectionsSubject[collectionName].stream;
       }
 
@@ -173,15 +173,15 @@ class MeteorClient {
     });
   }
 
-  /// To make sure that the stream is not null when accessing them through `collections`
-  /// If you not call prepareCollection, the stream will be null until it got data from ddp `collection` message.
-  void prepareCollection(String collectionName) {
+  /// Get [Stream] of `collection` on given `collectionName`. If the [Stream] has not yet be prepared then intiating it
+  Stream<Map<String, dynamic>> getOrPrepareCollection(String collectionName) {
     if (_collections[collectionName] == null) {
       _collections[collectionName] = {};
       var subject = _collectionsSubject[collectionName] =
           BehaviorSubject<Map<String, dynamic>>();
-      collections[collectionName] = subject.stream;
+      _collectionStreams[collectionName] = subject.stream;
     }
+    return _collectionStreams[collectionName];
   }
 
   // ===========================================================
@@ -326,7 +326,7 @@ class MeteorClient {
   }
 
   /// A Map containing user documents.
-  Stream<Map<String, dynamic>> get users => collections['users'];
+  Stream<Map<String, dynamic>> get users => _collectionStreams['users'];
 
   /// True if a login method (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser) is currently in progress.
   /// A reactive data source.
