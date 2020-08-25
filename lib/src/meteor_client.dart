@@ -264,9 +264,9 @@ class MeteorClient {
   /// `name` Name of method to invoke
   ///
   /// `args` List of method arguments
-  Future<dynamic> call(String name, List<dynamic> args) async {
+  Future<dynamic> call(String name, {List<dynamic> args}) async {
     try {
-      return await connection.call(name, args);
+      return await connection.call(name, args ?? []);
     } catch (e) {
       throw MeteorError.parse(e);
     }
@@ -337,7 +337,7 @@ class MeteorClient {
   /// Log the user out.
   Future logout() {
     Completer completer = Completer();
-    call('logout', []).then((result) {
+    call('logout').then((result) {
       _userId = null;
       _token = null;
       _tokenExpires = null;
@@ -364,7 +364,7 @@ class MeteorClient {
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
   Future logoutOtherClients() {
     Completer<String> completer = Completer();
-    call('getNewToken', []).then((result) {
+    call('getNewToken').then((result) {
       _userId = result['id'];
       _token = result['token'];
       _tokenExpires =
@@ -372,7 +372,7 @@ class MeteorClient {
       _loggingIn = false;
       _loggingInSubject.add(_loggingIn);
       _userIdSubject.add(_userId);
-      return call('removeOtherTokens', []);
+      return call('removeOtherTokens');
     }).catchError((error) {
       completer.completeError(error);
     });
@@ -405,7 +405,7 @@ class MeteorClient {
       selector = {'email': user};
     }
 
-    call('login', [
+    call('login', args: [
       {
         'user': selector,
         'password': {
@@ -467,7 +467,7 @@ class MeteorClient {
         _tokenExpires.isAfter(DateTime.now())) {
       _loggingIn = true;
       _loggingInSubject.add(_loggingIn);
-      call('login', [
+      call('login', args: [
         {'resume': _token}
       ]).then((result) {
         _userId = result['id'];
@@ -502,7 +502,7 @@ class MeteorClient {
 
   /// Change the current user's password. Must be logged in.
   Future<dynamic> changePassword(String oldPassword, String newPassword) {
-    return call('changePassword', [oldPassword, newPassword]);
+    return call('changePassword', args: [oldPassword, newPassword]);
   }
 
   /// Request a forgot password email.
@@ -510,7 +510,7 @@ class MeteorClient {
   /// [email]
   /// The email address to send a password reset link.
   Future<dynamic> forgotPassword(String email) {
-    return call('forgotPassword', [
+    return call('forgotPassword', args: [
       {'email': email}
     ]);
   }
@@ -523,6 +523,6 @@ class MeteorClient {
   /// [newPassword]
   /// A new password for the user. This is not sent in plain text over the wire.
   Future<dynamic> resetPassword(String token, String newPassword) {
-    return call("resetPassword", [token, newPassword]);
+    return call("resetPassword", args: [token, newPassword]);
   }
 }

@@ -34,7 +34,7 @@ void main() {
 
     test('It should throw error as integer', () async {
       try {
-        await meteor.call('methodThatThrowErrorAsInt', []);
+        await meteor.call('methodThatThrowErrorAsInt');
       } on MeteorError catch (e) {
         expect(e.error, 500);
         expect(e.reason, 'This is an error');
@@ -43,7 +43,7 @@ void main() {
 
     test('It should throw error as string', () async {
       try {
-        await meteor.call('methodThatThrowErrorAsString', []);
+        await meteor.call('methodThatThrowErrorAsString');
       } on MeteorError catch (e) {
         expect(e.error, 'error');
         expect(e.reason, 'This is an error');
@@ -102,7 +102,7 @@ void main() {
 
     test('clearAllMessages', () async  {
       await meteor.loginWithPassword('user1', 'password1');
-      await meteor.call('clearAllMessages', []);
+      await meteor.call('clearAllMessages');
     });
 
     test('collection(messages) stream should have values', () async {
@@ -120,9 +120,9 @@ void main() {
           completer.complete(true);
         }
       });
-      await meteor.call('sendMessage', ['message 1']);
-      await meteor.call('sendMessage', ['message 2']);
-      await meteor.call('sendMessage', ['message 3']);
+      await meteor.call('sendMessage', args: ['message 1']);
+      await meteor.call('sendMessage', args: ['message 2']);
+      await meteor.call('sendMessage', args: ['message 3']);
       await Future.delayed(Duration(seconds: 20));
       if (!completer.isCompleted) {
         completer.complete(false);
