@@ -73,7 +73,7 @@ class MeteorClient {
   /// Meteor.collections
   Map<String, Map<String, dynamic>> _collections = {};
   Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject = {};
-  Map<String, Stream<Map<String, dynamic>>> _collectionStreams = {};
+  Map<String, Stream<Map<String, dynamic>>> _collectionsStreams = {};
 
   MeteorClient.connect({String url}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
@@ -98,7 +98,7 @@ class MeteorClient {
     _userIdStream = _userIdSubject.stream;
     _userStream = _userSubject.stream;
 
-    getOrPrepareCollection('users');
+    _prepareCollection('users');
 
     connection.dataStreamController.stream.listen((data) {
       String collectionName = data['collection'];
@@ -108,13 +108,7 @@ class MeteorClient {
         fields['_id'] = id;
       }
 
-      if (_collections[collectionName] == null) {
-        _collections[collectionName] = {};
-        _collectionsSubject[collectionName] =
-            BehaviorSubject<Map<String, dynamic>>();
-        _collectionStreams[collectionName] =
-            _collectionsSubject[collectionName].stream;
-      }
+      _prepareCollection(collectionName);
 
       if (data['msg'] == 'removed') {
         _collections[collectionName].remove(id);
@@ -173,15 +167,21 @@ class MeteorClient {
     });
   }
 
-  /// Get [Stream] of `collection` on given `collectionName`. If the [Stream] has not yet be prepared then intiating it
-  Stream<Map<String, dynamic>> getOrPrepareCollection(String collectionName) {
+  void _prepareCollection(String collectionName) {
     if (_collections[collectionName] == null) {
       _collections[collectionName] = {};
       var subject = _collectionsSubject[collectionName] =
           BehaviorSubject<Map<String, dynamic>>();
-      _collectionStreams[collectionName] = subject.stream;
+      _collectionsStreams[collectionName] = subject.stream;
     }
-    return _collectionStreams[collectionName];
+  }
+
+  /// Get [Stream] of `collection` on given a `collectionName`.
+  Stream<Map<String, dynamic>> collection(String collectionName) {
+    if (_collections[collectionName] == null) {
+      _prepareCollection(collectionName);
+    }
+    return _collectionsStreams[collectionName];
   }
 
   // ===========================================================
@@ -242,10 +242,10 @@ class MeteorClient {
   ///
   /// `params`
   /// Arguments passed to publisher function on server.
-  SubscriptionHandler subscribe(
-      String name, 
-      {List<dynamic> params = const [], Function onStop(dynamic error), Function onReady}
-  ) {
+  SubscriptionHandler subscribe(String name,
+      {List<dynamic> params = const [],
+      Function onStop(dynamic error),
+      Function onReady}) {
     // TODO: not subscribe with same name and params.
     SubscriptionHandler handler =
         connection.subscribe(name, params, onStop: onStop, onReady: onReady);
@@ -326,7 +326,7 @@ class MeteorClient {
   }
 
   /// A Map containing user documents.
-  Stream<Map<String, dynamic>> get users => _collectionStreams['users'];
+  Stream<Map<String, dynamic>> get users => _collectionsStreams['users'];
 
   /// True if a login method (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser) is currently in progress.
   /// A reactive data source.

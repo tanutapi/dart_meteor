@@ -64,10 +64,23 @@ void main() {
     });
 
     test('meteor.loginWithPassword', () async {
-      MeteorClientLoginResult result =
+      var result =
           await meteor.loginWithPassword('user1', 'password1');
       print('MeteorClientLoginResult: ' + result.toString());
       expect(meteor.userId(), isNotNull);
+    });
+  });
+
+  group('Subscription', () {
+    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+
+    setUp(() async {
+      meteor.reconnect();
+      await Future.delayed(Duration(seconds: 2));
+    });
+
+    tearDown(() {
+      meteor.disconnect();
     });
 
     test('meteor.subscribe with onReady', () async {
@@ -82,6 +95,35 @@ void main() {
         },
       );
       await Future.delayed(Duration(seconds: 5));
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+    });
+
+    test('clearAllMessages', () async  {
+      await meteor.loginWithPassword('user1', 'password1');
+      await meteor.call('clearAllMessages', []);
+    });
+
+    test('collection(messages) stream should have values', () async {
+      var completer = Completer();
+      expect(completer.future, completion(true));
+      await meteor.loginWithPassword('user1', 'password1');
+      await meteor.subscribe(
+        'messages',
+        params: [],
+      );
+      meteor.collection('messages').listen((value) {
+        print('collection messages listen:');
+        print(value);
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      });
+      await meteor.call('sendMessage', ['message 1']);
+      await meteor.call('sendMessage', ['message 2']);
+      await meteor.call('sendMessage', ['message 3']);
+      await Future.delayed(Duration(seconds: 20));
       if (!completer.isCompleted) {
         completer.complete(false);
       }

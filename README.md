@@ -153,10 +153,11 @@ meteor.call('helloMethod', []).then((result) {
 You can found an example project inside [/example][example].
 
 ## Collections & Subscriptions
-Prepare your collections before use. You can use `getOrPrepareCollection` method in `StreamBuilder` or whenevr you want to get the `Stream`. Through the return `Stream` reference you can listen the updates of the collection.
+You can access your collections by calling `collection('your_collection_name')`.
+It will return a `Stream` which you can use it with your `StreamBuilder` or wherever you want. Through the returned `Stream` reference you can listen the updates of the collection.
 
 ```dart
-meteor.getOrPrepareCollection('your_collections');
+meteor.collection('your_collections');
 ```
 
 which return rxdart's Observable that you can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
