@@ -199,7 +199,7 @@ class _YourWidgetState extends State<YourWidget> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: meteor.getOrPrepareCollection('your_collection'),
+      stream: meteor.collection('your_collection'),
       builder:
           (context, AsyncSnapshot<Map<String, dynamic>> snapshot) {
         int docCount = 0;
