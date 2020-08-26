@@ -34,7 +34,7 @@ class _MyAppState extends State<MyApp> {
   String _methodResult = '';
 
   void _callMethod() {
-    meteor.call('helloMethod', []).then((result) {
+    meteor.call('helloMethod').then((result) {
       setState(() {
         _methodResult = result.toString();
       });
@@ -134,10 +134,10 @@ class _MyAppState extends State<MyApp> {
 
 ## Making a method call to your server
 
-Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something went wrong. You can also use it with a FutureBuilder.
+Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something went wrong. 
 
 ```dart
-meteor.call('helloMethod', []).then((result) {
+meteor.call('helloMethod').then((result) {
   setState(() {
     _methodResult = result.toString();
   });
@@ -148,6 +148,17 @@ meteor.call('helloMethod', []).then((result) {
     });
   }
 });
+```
+You can also use it with a FutureBuilder.
+```dart
+FutureBuilder<int>(
+  future: meteor.call('sumMethod', args: [5, 10]),
+  builder: (context, snapshot) {
+    if (snapshot.hasData) {
+      // your snapshot.data should = 5 + 10 = 15
+    }
+  },
+),
 ```
 
 You can found an example project inside [/example][example].
@@ -176,7 +187,7 @@ class _YourWidgetState extends State<YourWidget> {
   @override
   void initState() {
     super.initState();
-    _subscriptionHandler = meteor.subscribe('your_pub', ['param_1', 'param_2']);
+    _subscriptionHandler = meteor.subscribe('your_pub', args: ['param_1', 'param_2']);
   }
 
   @override
