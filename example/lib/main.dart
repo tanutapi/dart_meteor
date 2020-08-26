@@ -13,7 +13,7 @@ class _MyAppState extends State<MyApp> {
   String _methodResult = '';
 
   void _callMethod() {
-    meteor.call('helloMethod', []).then((result) {
+    meteor.call('helloMethod').then((result) {
       setState(() {
         _methodResult = result.toString();
       });
