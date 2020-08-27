@@ -88,7 +88,7 @@ void main() {
       expect(completer.future, completion(true));
       await meteor.subscribe(
         'messages',
-        params: [],
+        args: [],
         onReady: () {
           print('onReady is called.');
           completer.complete(true);
@@ -111,7 +111,6 @@ void main() {
       await meteor.loginWithPassword('user1', 'password1');
       await meteor.subscribe(
         'messages',
-        params: [],
       );
       meteor.collection('messages').listen((value) {
         print('collection messages listen:');
