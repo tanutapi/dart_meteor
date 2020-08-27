@@ -240,15 +240,15 @@ class MeteorClient {
   /// `name`
   /// Name of the subscription. Matches the name of the server's publish() call.
   ///
-  /// `params`
+  /// `args`
   /// Arguments passed to publisher function on server.
   SubscriptionHandler subscribe(String name,
-      {List<dynamic> params = const [],
+      {List<dynamic> args = const [],
       Function Function(dynamic error) onStop,
       Function onReady}) {
     // TODO: not subscribe with same name and params.
     var handler =
-        connection.subscribe(name, params, onStop: onStop, onReady: onReady);
+        connection.subscribe(name, args, onStop: onStop, onReady: onReady);
     if (_subscriptions[name] != null) {
       _subscriptions[name].stop();
     }
@@ -264,9 +264,9 @@ class MeteorClient {
   /// `name` Name of method to invoke
   ///
   /// `args` List of method arguments
-  Future<dynamic> call(String name, {List<dynamic> args}) async {
+  Future<dynamic> call(String name, {List<dynamic> args = const []}) async {
     try {
-      return await connection.call(name, args ?? []);
+      return await connection.call(name, args);
     } catch (e) {
       throw MeteorError.parse(e);
     }
