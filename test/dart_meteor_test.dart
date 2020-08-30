@@ -64,8 +64,7 @@ void main() {
     });
 
     test('meteor.loginWithPassword', () async {
-      var result =
-          await meteor.loginWithPassword('user1', 'password1');
+      var result = await meteor.loginWithPassword('user1', 'password1');
       print('MeteorClientLoginResult: ' + result.toString());
       expect(meteor.userId(), isNotNull);
     });
@@ -100,12 +99,14 @@ void main() {
       }
     });
 
-    test('clearAllMessages', () async  {
+    test('clearAllMessages', () async {
       await meteor.loginWithPassword('user1', 'password1');
       await meteor.call('clearAllMessages');
     });
 
-    test('collection(messages) stream should have values', () async {
+    test(
+        'collection(messages) stream should have values and "createdAt" should be instance of DateTime',
+        () async {
       var completer = Completer();
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
@@ -115,8 +116,15 @@ void main() {
       meteor.collection('messages').listen((value) {
         print('collection messages listen:');
         print(value);
-        if (!completer.isCompleted) {
-          completer.complete(true);
+
+        if (!(value[value.keys.first]['createdAt'] is DateTime)) {
+          if (!completer.isCompleted) {
+            completer.complete(false);
+          }
+        } else {
+          if (!completer.isCompleted) {
+            completer.complete(true);
+          }
         }
       });
       await meteor.call('sendMessage', args: ['message 1']);
