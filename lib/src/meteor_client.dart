@@ -72,7 +72,8 @@ class MeteorClient {
 
   /// Meteor.collections
   final Map<String, Map<String, dynamic>> _collections = {};
-  final Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject = {};
+  final Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject =
+      {};
   final Map<String, Stream<Map<String, dynamic>>> _collectionsStreams = {};
 
   MeteorClient.connect({String url}) {
@@ -106,6 +107,7 @@ class MeteorClient {
       dynamic fields = data['fields'];
       if (fields != null) {
         fields['_id'] = id;
+        _formatSpecialFieldValues(fields);
       }
 
       _prepareCollection(collectionName);
@@ -118,12 +120,12 @@ class MeteorClient {
         }
       } else if (data['msg'] == 'changed') {
         if (fields != null) {
-          fields.forEach((k, v) {
-            if (_collections[collectionName][id] != null &&
-                _collections[collectionName][id] is Map) {
+          if (_collections[collectionName][id] != null &&
+              _collections[collectionName][id] is Map) {
+            fields.forEach((k, v) {
               _collections[collectionName][id][k] = v;
-            }
-          });
+            });
+          }
         } else if (data['cleared'] != null && data['cleared'] is List) {
           List<dynamic> clearList = data['cleared'];
           if (_collections[collectionName][id] != null &&
@@ -174,6 +176,24 @@ class MeteorClient {
           BehaviorSubject<Map<String, dynamic>>();
       _collectionsStreams[collectionName] = subject.stream;
     }
+  }
+
+  /// Format a special value
+  /// ex.
+  /// createdAt: {$date: 1598804210504}
+  /// become
+  /// createdAt: DateTime Instance 2020-08-30 23:15:57.471
+  void _formatSpecialFieldValues(Map<String, dynamic> fields,
+      {Map<String, dynamic> parent, String field}) {
+    fields.forEach((k, v) {
+      if (v is Map) {
+        _formatSpecialFieldValues(v, parent: fields, field: k);
+      } else if (k == '\$date') {
+        if (parent != null && field != null) {
+          parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
+        }
+      }
+    });
   }
 
   /// Get [Stream] of `collection` on given a `collectionName`.
