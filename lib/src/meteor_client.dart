@@ -204,6 +204,13 @@ class MeteorClient {
     return _collectionsStreams[collectionName];
   }
 
+  Map<String, dynamic> collectionCurrentValue(String collectionName) {
+    if (_collections[collectionName] == null) {
+      _prepareCollection(collectionName);
+    }
+    return _collectionsSubject[collectionName].value;
+  }
+
   // ===========================================================
   // Core
 
