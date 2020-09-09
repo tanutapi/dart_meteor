@@ -85,7 +85,7 @@ void main() {
     test('meteor.subscribe with onReady', () async {
       var completer = Completer();
       expect(completer.future, completion(true));
-      await meteor.subscribe(
+      meteor.subscribe(
         'messages',
         args: [],
         onReady: () {
@@ -93,6 +93,31 @@ void main() {
           completer.complete(true);
         },
       );
+      await Future.delayed(Duration(seconds: 5));
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+    });
+
+    test('SubscriptionHandler.ready()', () async {
+      var completer = Completer();
+      expect(completer.future, completion(true));
+      var subHandler = meteor.subscribe(
+        'messages',
+        args: [],
+      );
+      var s = 0;
+      subHandler.ready().listen((value) {
+        if (s == 0) {
+          expect(value, false);
+        } if (s == 1) {
+          expect(value, true);
+          if (value) {
+            completer.complete(true);
+          }
+        }
+        s++;
+      });
       await Future.delayed(Duration(seconds: 5));
       if (!completer.isCompleted) {
         completer.complete(false);
