@@ -273,13 +273,9 @@ class MeteorClient {
       {List<dynamic> args = const [],
       Function Function(dynamic error) onStop,
       Function onReady}) {
-    // TODO: not subscribe with same name and params.
     var handler =
         connection.subscribe(name, args, onStop: onStop, onReady: onReady);
-    if (_subscriptions[name] != null) {
-      _subscriptions[name].stop();
-    }
-    _subscriptions[name] = handler;
+    _subscriptions[handler.subId] = handler;
     return handler;
   }
 
