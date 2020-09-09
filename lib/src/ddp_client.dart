@@ -35,10 +35,12 @@ class DdpConnectionStatus {
 
 class SubscriptionHandler {
   final DdpClient _ddpClient;
-  String subId;
+  final String subId;
   final StreamController<bool> _readyStreamController = StreamController();
   Stream<bool> _readyStream;
-  SubscriptionHandler(this._ddpClient, this.subId) {
+  final String subName;
+  final List<dynamic> args;
+  SubscriptionHandler(this._ddpClient, this.subId, this.subName, this.args) {
     _readyStream = _readyStreamController.stream.asBroadcastStream();
     _readyStreamController.sink.add(false);
   }
@@ -137,7 +139,7 @@ class DdpClient {
       {Function Function(dynamic error) onStop, Function onReady}) {
     var id = name + '-' + _generateUID(16);
     _subscriptions[id] = SubscriptionCallback(onStop: onStop, onReady: onReady);
-    var handler = SubscriptionHandler(this, id);
+    var handler = SubscriptionHandler(this, id, name, params);
     _subscriptionHandlers[id] = handler;
     _sendMsgSub(id, name, params);
     return handler;
