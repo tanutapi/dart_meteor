@@ -171,7 +171,7 @@ It will return a `Stream` which you can use it with your `StreamBuilder` or wher
 meteor.collection('your_collections');
 ```
 
-which return rxdart's Observable that you can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
+Which return a stream that backed by rxdart BehaviorSubject, a special StreamController that captures the latest item that has been added to the controller, and emits that as the first item to any new listener. You can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
 
 ```dart
 class YourWidget extends StatefulWidget {
@@ -212,6 +212,22 @@ class _YourWidgetState extends State<YourWidget> {
   }
 }
 ```
+
+The collection was return as a Map<String, dynamic>. The key is a document .\_id and its value is the whole document.
+
+Ex.
+```
+{
+  "DGbsysgxzSf7Cr8Jg": {
+    "_id": "DGbsysgxzSf7Cr8Jg", 
+    field1: 0, 
+    field2: "a", 
+    field3: true, 
+    field4: SomeDate
+  }
+}
+```
+We did not provide some kind of minimongo. We believe that you can use `reduce`, `map`, and `where` with the collection and get the same result as you did with a query in `minimongo` `meteor` web client.
 
 ## Features and bugs
 
