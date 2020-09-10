@@ -229,6 +229,9 @@ Ex.
 ```
 We did not provide some kind of minimongo. We believe that you can use `reduce`, `map`, and `where` with the collection and get the same result as you did with a query in `minimongo` `meteor` web client.
 
+## Don't want to access data via stream
+Getting the current data from stream is sometime complicated. Especially when you just want to get the latest value just for a condition checking. You can access the latest value from the `collection`, `user`, `userId` directly with `meteor.collectionCurrentValue('your_collection_name')`, `meteor.userCurrentValue()`, and `meteor.userIdCurrentValue()`.
+
 ## Features and bugs
 
 Please file feature requests and bugs at the [issue tracker][tracker].
