@@ -155,7 +155,8 @@ FutureBuilder<int>(
   future: meteor.call('sumMethod', args: [5, 10]),
   builder: (context, snapshot) {
     if (snapshot.hasData) {
-      // your snapshot.data should = 5 + 10 = 15
+      // your snapshot.data should be 5 + 10 = 15
+      return Text('Answer is: ${snapshot.data}');
     }
   },
 ),
