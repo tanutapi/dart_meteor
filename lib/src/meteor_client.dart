@@ -49,7 +49,7 @@ stack: $stack
 }
 
 enum UserLogInStatus {
-  loggedOut, loggedIn, logging
+  loggedOut, loggedIn, loggingIn, loggingOut
 }
 
 class MeteorClient {
@@ -332,12 +332,19 @@ class MeteorClient {
 
   /// Current log-in status of login methods (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser).
   /// A reactive data source.
-  Stream<UserLogInStatus> loggingIn() {
+  Stream<UserLogInStatus> logInStatus() {
     return _logInStatusStream;
   }
 
+  /// Current log-in status if user is logging in.
+  bool loggingIn() => _logInStatus == UserLogInStatus.loggingIn;
+  
+  /// Current log-out status if user is logging out.
+  bool loggingOut() => _logInStatus == UserLogInStatus.loggingOut;
+
   /// Log the user out.
   Future logout() {
+    _logInStatus = UserLogInStatus.loggingOut;
     Completer completer = Completer();
     call('logout', []).then((result) {
       _userId = null;
@@ -366,7 +373,7 @@ class MeteorClient {
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
   Future logoutOtherClients() {
     Completer<String> completer = Completer();
-    _logInStatus = UserLogInStatus.logging;
+    _logInStatus = UserLogInStatus.loggingIn;
     call('getNewToken', []).then((result) {
       _userId = result['id'];
       _token = result['token'];
@@ -399,7 +406,7 @@ class MeteorClient {
       String user, String password,
       {int delayOnLoginErrorSecond = 0}) {
     Completer<MeteorClientLoginResult> completer = Completer();
-    _logInStatus = UserLogInStatus.logging;
+    _logInStatus = UserLogInStatus.loggingIn;
     _logInStatusSubject.add(_logInStatus);
 
     var selector;
@@ -469,7 +476,7 @@ class MeteorClient {
     if (_token != null &&
         _tokenExpires != null &&
         _tokenExpires.isAfter(DateTime.now())) {
-      _logInStatus = UserLogInStatus.logging;
+      _logInStatus = UserLogInStatus.loggingIn;
       _logInStatusSubject.add(_logInStatus);
       call('login', [
         {'resume': _token}
