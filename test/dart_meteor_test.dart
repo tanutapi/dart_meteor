@@ -84,8 +84,7 @@ void main() {
         }
         print('After: loggingIn state: $state, loggingIn: $event');
       });
-      var result = await meteor.loginWithPassword('user1', 'password1');
-      print('MeteorClientLoginResult: ' + result.toString());
+      await meteor.loginWithPassword('user1', 'password1');
       expect(meteor.userId(), isNotNull);
       await Future.delayed(Duration(seconds: 5));
       expect(state, 3);
