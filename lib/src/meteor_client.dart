@@ -48,14 +48,18 @@ stack: $stack
   }
 }
 
+enum UserLogInStatus {
+  loggedOut, loggedIn, loggingIn, loggingOut
+}
+
 class MeteorClient {
   DdpClient connection;
 
   BehaviorSubject<DdpConnectionStatus> _statusSubject = BehaviorSubject();
   Stream<DdpConnectionStatus> _statusStream;
 
-  BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
-  Stream<bool> _loggingInStream;
+  BehaviorSubject<UserLogInStatus> _logInStatusSubject = BehaviorSubject();
+  Stream<UserLogInStatus> _logInStatusStream;
 
   BehaviorSubject<String> _userIdSubject = BehaviorSubject();
   Stream<String> _userIdStream;
@@ -66,7 +70,7 @@ class MeteorClient {
   String _userId;
   String _token;
   DateTime _tokenExpires;
-  bool _loggingIn = false;
+  UserLogInStatus _logInStatus = UserLogInStatus.loggedOut;
 
   Map<String, SubscriptionHandler> _subscriptions = {};
 
@@ -94,7 +98,7 @@ class MeteorClient {
       });
     _statusStream = _statusSubject.stream;
 
-    _loggingInStream = _loggingInSubject.stream;
+    _logInStatusStream = _logInStatusSubject.stream;
     _userIdStream = _userIdSubject.stream;
     _userStream = _userSubject.stream;
 
@@ -326,29 +330,36 @@ class MeteorClient {
   /// A Map containing user documents.
   Stream<Map<String, dynamic>> get users => collections['users'];
 
-  /// True if a login method (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser) is currently in progress.
+  /// Current log-in status of login methods (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser).
   /// A reactive data source.
-  Stream<bool> loggingIn() {
-    return _loggingInStream;
+  Stream<UserLogInStatus> logInStatus() {
+    return _logInStatusStream;
   }
+
+  /// Current log-in status if user is logging in.
+  bool loggingIn() => _logInStatus == UserLogInStatus.loggingIn;
+  
+  /// Current log-out status if user is logging out.
+  bool loggingOut() => _logInStatus == UserLogInStatus.loggingOut;
 
   /// Log the user out.
   Future logout() {
+    _logInStatus = UserLogInStatus.loggingOut;
     Completer completer = Completer();
     call('logout', []).then((result) {
       _userId = null;
       _token = null;
       _tokenExpires = null;
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedOut;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       completer.complete();
     }).catchError((error) {
       _userId = null;
       _token = null;
       _tokenExpires = null;
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedOut;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       connection.disconnect();
       Future.delayed(Duration(seconds: 2), () {
@@ -362,16 +373,18 @@ class MeteorClient {
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
   Future logoutOtherClients() {
     Completer<String> completer = Completer();
+    _logInStatus = UserLogInStatus.loggingIn;
     call('getNewToken', []).then((result) {
       _userId = result['id'];
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedIn;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       return call('removeOtherTokens', []);
     }).catchError((error) {
+      _logInStatus = UserLogInStatus.loggedOut;
       completer.completeError(error);
     });
     return completer.future;
@@ -393,8 +406,8 @@ class MeteorClient {
       String user, String password,
       {int delayOnLoginErrorSecond = 0}) {
     Completer<MeteorClientLoginResult> completer = Completer();
-    _loggingIn = true;
-    _loggingInSubject.add(_loggingIn);
+    _logInStatus = UserLogInStatus.loggingIn;
+    _logInStatusSubject.add(_logInStatus);
 
     var selector;
     if (!user.contains('@')) {
@@ -416,8 +429,8 @@ class MeteorClient {
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedIn;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       completer.complete(MeteorClientLoginResult(
         userId: _userId,
@@ -429,8 +442,8 @@ class MeteorClient {
         _userId = null;
         _token = null;
         _tokenExpires = null;
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
+        _logInStatus = UserLogInStatus.loggedOut;
+        _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId);
         completer.completeError(error);
       });
@@ -463,8 +476,8 @@ class MeteorClient {
     if (_token != null &&
         _tokenExpires != null &&
         _tokenExpires.isAfter(DateTime.now())) {
-      _loggingIn = true;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggingIn;
+      _logInStatusSubject.add(_logInStatus);
       call('login', [
         {'resume': _token}
       ]).then((result) {
@@ -472,8 +485,8 @@ class MeteorClient {
         _token = result['token'];
         _tokenExpires = DateTime.fromMillisecondsSinceEpoch(
             result['tokenExpires']['\$date']);
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
+        _logInStatus = UserLogInStatus.loggedIn;
+        _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId);
         completer.complete(MeteorClientLoginResult(
           userId: _userId,
@@ -484,8 +497,8 @@ class MeteorClient {
         _userId = null;
         _token = null;
         _tokenExpires = null;
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
+        _logInStatus = UserLogInStatus.loggedOut;
+        _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId);
         completer.completeError(error);
       });
