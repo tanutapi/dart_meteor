@@ -58,19 +58,20 @@ enum UserLogInStatus {
 class MeteorClient {
   DdpClient connection;
 
-  BehaviorSubject<DdpConnectionStatus> _statusSubject = BehaviorSubject();
+  final BehaviorSubject<DdpConnectionStatus> _statusSubject = BehaviorSubject();
   Stream<DdpConnectionStatus> _statusStream;
 
-  BehaviorSubject<UserLogInStatus> _logInStatusSubject = BehaviorSubject();
+  final BehaviorSubject<UserLogInStatus> _logInStatusSubject =
+      BehaviorSubject();
   Stream<UserLogInStatus> _logInStatusStream;
 
-  BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
+  final BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
   Stream<bool> _loggingInStream;
 
-  BehaviorSubject<String> _userIdSubject = BehaviorSubject();
+  final BehaviorSubject<String> _userIdSubject = BehaviorSubject();
   Stream<String> _userIdStream;
 
-  BehaviorSubject<Map<String, dynamic>> _userSubject = BehaviorSubject();
+  final BehaviorSubject<Map<String, dynamic>> _userSubject = BehaviorSubject();
   Stream<Map<String, dynamic>> _userStream;
 
   String _userId;
@@ -78,12 +79,13 @@ class MeteorClient {
   DateTime _tokenExpires;
   UserLogInStatus _logInStatus = UserLogInStatus.loggedOut;
 
-  Map<String, SubscriptionHandler> _subscriptions = {};
+  final Map<String, SubscriptionHandler> _subscriptions = {};
 
   /// Meteor.collections
-  Map<String, Map<String, dynamic>> _collections = {};
-  Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject = {};
-  Map<String, Stream<Map<String, dynamic>>> collections = {};
+  final Map<String, Map<String, dynamic>> _collections = {};
+  final Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject =
+      {};
+  final Map<String, Stream<Map<String, dynamic>>> collections = {};
 
   MeteorClient.connect({String url}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
@@ -218,16 +220,16 @@ class MeteorClient {
 
   /// Boolean variable. True if running in development environment.
   bool isDevelopment() {
-    return !bool.fromEnvironment("dart.vm.product");
+    return !bool.fromEnvironment('dart.vm.product');
   }
 
   /// Boolean variable. True if running in production environment.
   bool isProduction() {
-    return bool.fromEnvironment("dart.vm.product");
+    return bool.fromEnvironment('dart.vm.product');
   }
 
   bool isAlreadyRunStartupFunctions = false;
-  List<Function> _startupFunctions = [];
+  final List<Function> _startupFunctions = [];
 
   /// Run code when a client successfully make a connection to server.
   void startup(Function func) {
@@ -257,9 +259,9 @@ class MeteorClient {
   /// `params`
   /// Arguments passed to publisher function on server.
   SubscriptionHandler subscribe(String name, List<dynamic> params,
-      {Function onStop(dynamic error), Function onReady}) {
+      {Function Function(dynamic error) onStop, Function onReady}) {
     // TODO: not subscribe with same name and params.
-    SubscriptionHandler handler =
+    var handler =
         connection.subscribe(name, params, onStop: onStop, onReady: onReady);
     if (_subscriptions[name] != null) {
       _subscriptions[name].stop();
@@ -355,7 +357,7 @@ class MeteorClient {
   /// Log the user out.
   Future logout() {
     _logInStatus = UserLogInStatus.loggingOut;
-    Completer completer = Completer();
+    var completer = Completer();
     call('logout', []).then((result) {
       _userId = null;
       _token = null;
@@ -382,7 +384,7 @@ class MeteorClient {
 
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
   Future logoutOtherClients() {
-    Completer<String> completer = Completer();
+    var completer = Completer<String>();
     _logInStatus = UserLogInStatus.loggingIn;
     call('getNewToken', []).then((result) {
       _userId = result['id'];
@@ -415,7 +417,7 @@ class MeteorClient {
   Future<MeteorClientLoginResult> loginWithPassword(
       String user, String password,
       {int delayOnLoginErrorSecond = 0}) {
-    Completer<MeteorClientLoginResult> completer = Completer();
+    var completer = Completer<MeteorClientLoginResult>();
     _logInStatus = UserLogInStatus.loggingIn;
     _logInStatusSubject.add(_logInStatus);
 
@@ -473,7 +475,7 @@ class MeteorClient {
   }
 
   Future<MeteorClientLoginResult> _loginWithExistingToken() {
-    Completer<MeteorClientLoginResult> completer = Completer();
+    var completer = Completer<MeteorClientLoginResult>();
     print('Trying to login with existing token...');
     print('Token is ${_token}');
     if (_tokenExpires != null) {
@@ -544,6 +546,6 @@ class MeteorClient {
   /// [newPassword]
   /// A new password for the user. This is not sent in plain text over the wire.
   Future<dynamic> resetPassword(String token, String newPassword) {
-    return call("resetPassword", [token, newPassword]);
+    return call('resetPassword', [token, newPassword]);
   }
 }

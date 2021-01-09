@@ -34,9 +34,9 @@ class DdpConnectionStatus {
 }
 
 class SubscriptionHandler {
-  DdpClient _ddpClient;
-  String subId;
-  StreamController<bool> _readyStreamController = StreamController();
+  final DdpClient _ddpClient;
+  final String subId;
+  final StreamController<bool> _readyStreamController = StreamController();
   Stream<bool> _readyStream;
   SubscriptionHandler(this._ddpClient, this.subId) {
     _readyStream = _readyStreamController.stream.asBroadcastStream();
@@ -77,21 +77,21 @@ class DdpClient {
   final int PONG_WITHIN_SEC = 5;
   final Random _random = Random.secure();
 
-  StreamController<DdpConnectionStatus> _statusStreamController =
+  final StreamController<DdpConnectionStatus> _statusStreamController =
       StreamController();
   StreamController<dynamic> dataStreamController = StreamController();
   DdpConnectionStatus _connectionStatus;
   String _url;
   WebSocket _socket;
   int _maxRetryCount = 20;
-  Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
+  final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
   String _sessionId;
   int _currentMethodId = 0;
   bool _flagToBeResetAtPongMsg = false;
   Timer _pingPeriodicTimer;
-  Map<String, Completer<dynamic>> _methodCompleters = {};
-  Map<String, SubscriptionCallback> _subscriptions = {};
-  Map<String, SubscriptionHandler> _subscriptionHandlers = {};
+  final Map<String, Completer<dynamic>> _methodCompleters = {};
+  final Map<String, SubscriptionCallback> _subscriptions = {};
+  final Map<String, SubscriptionHandler> _subscriptionHandlers = {};
   bool _isTryToReconnect = true;
   Timer _scheduleReconnectTimer;
 
@@ -109,7 +109,7 @@ class DdpClient {
     _connect();
   }
 
-  printDebug(String str) {
+  void printDebug(String str) {
     if (debug) {
       print('DDP[${_socket.hashCode}] - ${DateTime.now()}');
       print('DDP[${_socket.hashCode}] - $str');
@@ -121,8 +121,9 @@ class DdpClient {
   /// For example, this can be used to re-establish the appropriate authentication context on the connection.
   /// callback:
   /// The function to call. It will be called with a single argument, the connection object that is reconnecting.
-  void onReconnect(void callback(OnReconnectionCallback reconnection)) {
-    String id = _generateUID(16);
+  void onReconnect(
+      void Function(OnReconnectionCallback reconnection) callback) {
+    var id = _generateUID(16);
     var onReconnectCallback =
         OnReconnectionCallback(ddpClient: this, id: id, callback: callback);
     _onReconnectCallbacks[id] = onReconnectCallback;
@@ -134,8 +135,8 @@ class DdpClient {
   }
 
   SubscriptionHandler subscribe(String name, List<dynamic> params,
-      {Function onStop(dynamic error), Function onReady}) {
-    String id = name + '-' + _generateUID(16);
+      {Function Function(dynamic error) onStop, Function onReady}) {
+    var id = name + '-' + _generateUID(16);
     _subscriptions[id] = SubscriptionCallback(onStop: onStop, onReady: onReady);
     var handler = SubscriptionHandler(this, id);
     _subscriptionHandlers[id] = handler;
@@ -149,7 +150,7 @@ class DdpClient {
 
   Future<dynamic> apply(String method, List<dynamic> params) {
     var methodCompleter = Completer<dynamic>();
-    String newId = _currentMethodId.toString();
+    var newId = _currentMethodId.toString();
     _sendMsgMethod(method, params, newId);
     _currentMethodId++;
     _methodCompleters[newId] = methodCompleter;
@@ -211,7 +212,7 @@ class DdpClient {
       _connectionStatus.reason = null;
       _statusStreamController.sink.add(_connectionStatus);
       try {
-        WebSocket socket =
+        var socket =
             await WebSocket.connect(_url).timeout(Duration(seconds: 5));
         _connectionStatus.retryCount = 0;
         _connectionStatus.retryTime = Duration(seconds: 1);
@@ -285,7 +286,7 @@ class DdpClient {
       var msg = json.encode({'msg': 'ping'});
       printDebug('Send: $msg');
       _socket.add(msg);
-      DateTime sentTime = DateTime.now();
+      var sentTime = DateTime.now();
       _flagToBeResetAtPongMsg = true;
       Future.delayed(Duration(seconds: PONG_WITHIN_SEC), () {
         if (_flagToBeResetAtPongMsg == true) {
@@ -398,7 +399,7 @@ class DdpClient {
       } else if (msg == 'nosub') {
         if (dataMap['id'] != null) {
           String id = dataMap['id'];
-          SubscriptionCallback sub = _subscriptions[id];
+          var sub = _subscriptions[id];
           if (sub != null && sub.onStop != null) {
             sub.onStop(dataMap['error']);
             _subscriptions.remove(id);
@@ -406,7 +407,7 @@ class DdpClient {
           } else if (sub == null) {
             printDebug('Unknow nosub error!');
           }
-          SubscriptionHandler handler = _subscriptionHandlers[id];
+          var handler = _subscriptionHandlers[id];
           if (handler != null) {
             _subscriptionHandlers.remove(id);
             handler = null;
@@ -423,11 +424,11 @@ class DdpClient {
         List subs = dataMap['subs'];
         if (subs != null) {
           subs.forEach((id) {
-            SubscriptionCallback sub = _subscriptions[id];
+            var sub = _subscriptions[id];
             if (sub != null && sub.onReady != null) {
               sub.onReady();
             }
-            SubscriptionHandler handler = _subscriptionHandlers[id];
+            var handler = _subscriptionHandlers[id];
             if (handler != null) {
               handler._readyStreamController.sink.add(true);
             }
@@ -438,7 +439,7 @@ class DdpClient {
       } else if (msg == 'result') {
         if (dataMap['id'] != null) {
           String id = dataMap['id'];
-          Completer<dynamic> completer = _methodCompleters[id];
+          var completer = _methodCompleters[id];
           if (completer != null) {
             if (dataMap['error'] != null) {
               completer.completeError(dataMap['error']);
