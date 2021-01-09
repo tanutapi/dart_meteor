@@ -49,7 +49,10 @@ stack: $stack
 }
 
 enum UserLogInStatus {
-  loggedOut, loggedIn, loggingIn, loggingOut
+  loggedOut,
+  loggedIn,
+  loggingIn,
+  loggingOut,
 }
 
 class MeteorClient {
@@ -60,6 +63,9 @@ class MeteorClient {
 
   BehaviorSubject<UserLogInStatus> _logInStatusSubject = BehaviorSubject();
   Stream<UserLogInStatus> _logInStatusStream;
+
+  BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
+  Stream<bool> _loggingInStream;
 
   BehaviorSubject<String> _userIdSubject = BehaviorSubject();
   Stream<String> _userIdStream;
@@ -98,7 +104,11 @@ class MeteorClient {
       });
     _statusStream = _statusSubject.stream;
 
+    _loggingInStream = _loggingInSubject.stream;
     _logInStatusStream = _logInStatusSubject.stream;
+    _logInStatusStream.listen((event) {
+      _loggingInSubject.add(event == UserLogInStatus.loggingIn);
+    });
     _userIdStream = _userIdSubject.stream;
     _userStream = _userSubject.stream;
 
@@ -336,11 +346,11 @@ class MeteorClient {
     return _logInStatusStream;
   }
 
-  /// Current log-in status if user is logging in.
-  bool loggingIn() => _logInStatus == UserLogInStatus.loggingIn;
-  
-  /// Current log-out status if user is logging out.
-  bool loggingOut() => _logInStatus == UserLogInStatus.loggingOut;
+  /// True if a login method (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser) is currently in progress.
+  /// A reactive data source.
+  Stream<bool> loggingIn() {
+    return _loggingInStream;
+  }
 
   /// Log the user out.
   Future logout() {
