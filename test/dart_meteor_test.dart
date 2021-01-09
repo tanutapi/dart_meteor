@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Environment', () {
-    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
 
     test('meteor.isClient', () {
       expect(meteor.isClient(), isTrue);
@@ -21,7 +21,7 @@ void main() {
   });
 
   group('MeteorError', () {
-    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
 
     setUp(() async {
       meteor.reconnect();
@@ -52,7 +52,7 @@ void main() {
   });
 
   group('Login', () {
-    MeteorClient meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
 
     setUp(() async {
       meteor.reconnect();
@@ -64,8 +64,7 @@ void main() {
     });
 
     test('meteor.loginWithPassword', () async {
-      MeteorClientLoginResult result =
-          await meteor.loginWithPassword('user1', 'password1');
+      var result = await meteor.loginWithPassword('user1', 'password1');
       print('MeteorClientLoginResult: ' + result.toString());
       expect(meteor.userId(), isNotNull);
     });
