@@ -62,7 +62,7 @@ class MeteorClient {
   Stream<DdpConnectionStatus> _statusStream;
 
   final BehaviorSubject<UserLogInStatus> _logInStatusSubject =
-      BehaviorSubject();
+      BehaviorSubject.seeded(UserLogInStatus.loggedOut);
   Stream<UserLogInStatus> _logInStatusStream;
 
   final BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
