@@ -6,6 +6,14 @@ For Flutter Web (web branch) ![](https://github.com/tanutapi/dart_meteor/workflo
 
 This library makes a connection between the Meteor backend and the Flutter app simply. Design to work seamlessly with StreamBuilder and FutureBuilder.
 
+## Change on 2.0.0 ##
+
+Passing arguments to meteor method is now optional. In version 1.x.x you did: `meteor.call('your_method_name', [param1, param2])`. Now in version 2.x.x, it will be `meteor.call('your_method_name', args: [param1, param2])` or just `meteor.call('your_method_name')` if you don't want to pass any argument to your method.
+
+Same as subscription. In version 1.x.x you did: `meteor.subscribe('your_pub', [param1, param2])`. Now in version 2.x.x, it will be `meteor.subscribe('your_pub', args: [param1, param2])` or just `meteor.subscribe('your_pub')` if you don't want to pass any argument to make your subscription.
+
+In version 1.x.x, you have to call `meteor.prepareCollection('your_collection_name')` before you can use it. Now in version 2.x.x, you don't have to prepare a collection. You now access the collection by calling `collection` method `meteor.collection('messages').listen((value) { ... })`.
+
 ## Usage
 
 I just publish a post on Medium showing how to handle connection status, user authentication, and subscriptions. Please check https://medium.com/@tanutapi/writing-flutter-mobile-application-with-meteor-backend-643d2c1947d0?source=friends_link&sk=52ce2fa2603934e7395e2d19dd54e06c
