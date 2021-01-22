@@ -210,7 +210,9 @@ void main() {
       meteor.disconnect();
     });
 
-    test('reactive on subscription, expect assets contains one document if we do stop the fist subscription', () async {
+    test(
+        'reactive on subscription, expect assets contains one document if we do stop the fist subscription',
+        () async {
       var completer = Completer();
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
@@ -221,20 +223,16 @@ void main() {
         if (sub != null) {
           sub.stop();
         }
-        sub = meteor.subscribe(
-          'assets', 
-          args: [username],
-          onReady: () async {
-            var assets = await meteor.collectionCurrentValue('assets');
-            if (username == 'user2' && assets.length == 1) {
-              assets.forEach((k, v) { 
-                if (v['owner'] == 'user2') {
-                  completer.complete(true);
-                }
-              });
-            }
+        sub = meteor.subscribe('assets', args: [username], onReady: () async {
+          var assets = await meteor.collectionCurrentValue('assets');
+          if (username == 'user2' && assets.length == 1) {
+            assets.forEach((k, v) {
+              if (v['owner'] == 'user2') {
+                completer.complete(true);
+              }
+            });
           }
-        );
+        });
       });
       var bFirst = true;
       meteor.collection('assets').listen((value) {
@@ -252,7 +250,9 @@ void main() {
       }
     });
 
-    test('reactive on subscription, expect assets contains two documents if we does not stop the fist subscription', () async {
+    test(
+        'reactive on subscription, expect assets contains two documents if we does not stop the fist subscription',
+        () async {
       var completer = Completer();
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
@@ -260,20 +260,16 @@ void main() {
       SubscriptionHandler sub;
       reactive.add('user1');
       reactive.listen((username) {
-        sub = meteor.subscribe(
-          'assets', 
-          args: [username],
-          onReady: () async {
-            var assets = await meteor.collectionCurrentValue('assets');
-            if (username == 'user2' && assets.length == 2) {
-              assets.forEach((k, v) { 
-                if (v['owner'] == 'user2') {
-                  completer.complete(true);
-                }
-              });
-            }
+        sub = meteor.subscribe('assets', args: [username], onReady: () async {
+          var assets = await meteor.collectionCurrentValue('assets');
+          if (username == 'user2' && assets.length == 2) {
+            assets.forEach((k, v) {
+              if (v['owner'] == 'user2') {
+                completer.complete(true);
+              }
+            });
           }
-        );
+        });
       });
       var bFirst = true;
       meteor.collection('assets').listen((value) {
