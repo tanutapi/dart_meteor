@@ -85,7 +85,7 @@ class MeteorClient {
   final Map<String, Map<String, dynamic>> _collections = {};
   final Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject =
       {};
-  final Map<String, Stream<Map<String, dynamic>>> collections = {};
+  final Map<String, Stream<Map<String, dynamic>>> _collectionsStreams = {};
 
   MeteorClient.connect({String url}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
@@ -114,7 +114,7 @@ class MeteorClient {
     _userIdStream = _userIdSubject.stream;
     _userStream = _userSubject.stream;
 
-    prepareCollection('users');
+    _prepareCollection('users');
 
     connection.dataStreamController.stream.listen((data) {
       String collectionName = data['collection'];
@@ -122,15 +122,10 @@ class MeteorClient {
       dynamic fields = data['fields'];
       if (fields != null) {
         fields['_id'] = id;
+        _formatSpecialFieldValues(fields);
       }
 
-      if (_collections[collectionName] == null) {
-        _collections[collectionName] = {};
-        _collectionsSubject[collectionName] =
-            BehaviorSubject<Map<String, dynamic>>();
-        collections[collectionName] =
-            _collectionsSubject[collectionName].stream;
-      }
+      _prepareCollection(collectionName);
 
       if (data['msg'] == 'removed') {
         _collections[collectionName].remove(id);
@@ -140,12 +135,12 @@ class MeteorClient {
         }
       } else if (data['msg'] == 'changed') {
         if (fields != null) {
-          fields.forEach((k, v) {
-            if (_collections[collectionName][id] != null &&
-                _collections[collectionName][id] is Map) {
+          if (_collections[collectionName][id] != null &&
+              _collections[collectionName][id] is Map) {
+            fields.forEach((k, v) {
               _collections[collectionName][id][k] = v;
-            }
-          });
+            });
+          }
         } else if (data['cleared'] != null && data['cleared'] is List) {
           List<dynamic> clearList = data['cleared'];
           if (_collections[collectionName][id] != null &&
@@ -189,15 +184,46 @@ class MeteorClient {
     });
   }
 
-  /// To make sure that the stream is not null when accessing them through `collections`
-  /// If you not call prepareCollection, the stream will be null until it got data from ddp `collection` message.
-  void prepareCollection(String collectionName) {
+  void _prepareCollection(String collectionName) {
     if (_collections[collectionName] == null) {
       _collections[collectionName] = {};
       var subject = _collectionsSubject[collectionName] =
           BehaviorSubject<Map<String, dynamic>>();
-      collections[collectionName] = subject.stream;
+      _collectionsStreams[collectionName] = subject.stream;
     }
+  }
+
+  /// Format a special value
+  /// ex.
+  /// createdAt: {$date: 1598804210504}
+  /// become
+  /// createdAt: DateTime Instance 2020-08-30 23:15:57.471
+  void _formatSpecialFieldValues(Map<String, dynamic> fields,
+      {Map<String, dynamic> parent, String field}) {
+    fields.forEach((k, v) {
+      if (v is Map) {
+        _formatSpecialFieldValues(v, parent: fields, field: k);
+      } else if (k == '\$date') {
+        if (parent != null && field != null) {
+          parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
+        }
+      }
+    });
+  }
+
+  /// Get [Stream] of `collection` on given a `collectionName`.
+  Stream<Map<String, dynamic>> collection(String collectionName) {
+    if (_collections[collectionName] == null) {
+      _prepareCollection(collectionName);
+    }
+    return _collectionsStreams[collectionName];
+  }
+
+  Map<String, dynamic> collectionCurrentValue(String collectionName) {
+    if (_collections[collectionName] == null) {
+      _prepareCollection(collectionName);
+    }
+    return _collectionsSubject[collectionName].value;
   }
 
   // ===========================================================
@@ -256,17 +282,15 @@ class MeteorClient {
   /// `name`
   /// Name of the subscription. Matches the name of the server's publish() call.
   ///
-  /// `params`
+  /// `args`
   /// Arguments passed to publisher function on server.
-  SubscriptionHandler subscribe(String name, List<dynamic> params,
-      {Function Function(dynamic error) onStop, Function onReady}) {
-    // TODO: not subscribe with same name and params.
+  SubscriptionHandler subscribe(String name,
+      {List<dynamic> args = const [],
+      Function Function(dynamic error) onStop,
+      Function onReady}) {
     var handler =
-        connection.subscribe(name, params, onStop: onStop, onReady: onReady);
-    if (_subscriptions[name] != null) {
-      _subscriptions[name].stop();
-    }
-    _subscriptions[name] = handler;
+        connection.subscribe(name, args, onStop: onStop, onReady: onReady);
+    _subscriptions[handler.subId] = handler;
     return handler;
   }
 
@@ -278,7 +302,7 @@ class MeteorClient {
   /// `name` Name of method to invoke
   ///
   /// `args` List of method arguments
-  Future<dynamic> call(String name, List<dynamic> args) async {
+  Future<dynamic> call(String name, {List<dynamic> args = const []}) async {
     try {
       return await connection.call(name, args);
     } catch (e) {
@@ -340,7 +364,7 @@ class MeteorClient {
   }
 
   /// A Map containing user documents.
-  Stream<Map<String, dynamic>> get users => collections['users'];
+  Stream<Map<String, dynamic>> get users => _collectionsStreams['users'];
 
   /// Current log-in status of login methods (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser).
   /// A reactive data source.
@@ -358,7 +382,7 @@ class MeteorClient {
   Future logout() {
     _logInStatus = UserLogInStatus.loggingOut;
     var completer = Completer();
-    call('logout', []).then((result) {
+    call('logout').then((result) {
       _userId = null;
       _token = null;
       _tokenExpires = null;
@@ -386,7 +410,7 @@ class MeteorClient {
   Future logoutOtherClients() {
     var completer = Completer<String>();
     _logInStatus = UserLogInStatus.loggingIn;
-    call('getNewToken', []).then((result) {
+    call('getNewToken').then((result) {
       _userId = result['id'];
       _token = result['token'];
       _tokenExpires =
@@ -394,7 +418,7 @@ class MeteorClient {
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
-      return call('removeOtherTokens', []);
+      return call('removeOtherTokens');
     }).catchError((error) {
       _logInStatus = UserLogInStatus.loggedOut;
       completer.completeError(error);
@@ -428,7 +452,7 @@ class MeteorClient {
       selector = {'email': user};
     }
 
-    call('login', [
+    call('login', args: [
       {
         'user': selector,
         'password': {
@@ -490,7 +514,7 @@ class MeteorClient {
         _tokenExpires.isAfter(DateTime.now())) {
       _logInStatus = UserLogInStatus.loggingIn;
       _logInStatusSubject.add(_logInStatus);
-      call('login', [
+      call('login', args: [
         {'resume': _token}
       ]).then((result) {
         _userId = result['id'];
@@ -525,7 +549,7 @@ class MeteorClient {
 
   /// Change the current user's password. Must be logged in.
   Future<dynamic> changePassword(String oldPassword, String newPassword) {
-    return call('changePassword', [oldPassword, newPassword]);
+    return call('changePassword', args: [oldPassword, newPassword]);
   }
 
   /// Request a forgot password email.
@@ -533,7 +557,7 @@ class MeteorClient {
   /// [email]
   /// The email address to send a password reset link.
   Future<dynamic> forgotPassword(String email) {
-    return call('forgotPassword', [
+    return call('forgotPassword', args: [
       {'email': email}
     ]);
   }
@@ -546,6 +570,6 @@ class MeteorClient {
   /// [newPassword]
   /// A new password for the user. This is not sent in plain text over the wire.
   Future<dynamic> resetPassword(String token, String newPassword) {
-    return call('resetPassword', [token, newPassword]);
+    return call('resetPassword', args: [token, newPassword]);
   }
 }
