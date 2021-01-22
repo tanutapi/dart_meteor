@@ -146,7 +146,7 @@ void main() {
       subHandler.ready().listen((value) {
         if (s == 0) {
           expect(value, false);
-        } if (s == 1) {
+        } else if (s == 1) {
           expect(value, true);
           if (value) {
             completer.complete(true);
