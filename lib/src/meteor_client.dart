@@ -48,11 +48,22 @@ stack: $stack
   }
 }
 
+enum UserLogInStatus {
+  loggedOut,
+  loggedIn,
+  loggingIn,
+  loggingOut,
+}
+
 class MeteorClient {
   DdpClient connection;
 
   final BehaviorSubject<DdpConnectionStatus> _statusSubject = BehaviorSubject();
   Stream<DdpConnectionStatus> _statusStream;
+
+  final BehaviorSubject<UserLogInStatus> _logInStatusSubject =
+      BehaviorSubject();
+  Stream<UserLogInStatus> _logInStatusStream;
 
   final BehaviorSubject<bool> _loggingInSubject = BehaviorSubject();
   Stream<bool> _loggingInStream;
@@ -66,7 +77,7 @@ class MeteorClient {
   String _userId;
   String _token;
   DateTime _tokenExpires;
-  bool _loggingIn = false;
+  UserLogInStatus _logInStatus = UserLogInStatus.loggedOut;
 
   final Map<String, SubscriptionHandler> _subscriptions = {};
 
@@ -96,6 +107,10 @@ class MeteorClient {
     _statusStream = _statusSubject.stream;
 
     _loggingInStream = _loggingInSubject.stream;
+    _logInStatusStream = _logInStatusSubject.stream;
+    _logInStatusStream.listen((event) {
+      _loggingInSubject.add(event == UserLogInStatus.loggingIn);
+    });
     _userIdStream = _userIdSubject.stream;
     _userStream = _userSubject.stream;
 
@@ -351,6 +366,12 @@ class MeteorClient {
   /// A Map containing user documents.
   Stream<Map<String, dynamic>> get users => _collectionsStreams['users'];
 
+  /// Current log-in status of login methods (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser).
+  /// A reactive data source.
+  Stream<UserLogInStatus> logInStatus() {
+    return _logInStatusStream;
+  }
+
   /// True if a login method (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser) is currently in progress.
   /// A reactive data source.
   Stream<bool> loggingIn() {
@@ -359,21 +380,22 @@ class MeteorClient {
 
   /// Log the user out.
   Future logout() {
+    _logInStatus = UserLogInStatus.loggingOut;
     var completer = Completer();
     call('logout').then((result) {
       _userId = null;
       _token = null;
       _tokenExpires = null;
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedOut;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       completer.complete();
     }).catchError((error) {
       _userId = null;
       _token = null;
       _tokenExpires = null;
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedOut;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       connection.disconnect();
       Future.delayed(Duration(seconds: 2), () {
@@ -387,16 +409,18 @@ class MeteorClient {
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
   Future logoutOtherClients() {
     var completer = Completer<String>();
+    _logInStatus = UserLogInStatus.loggingIn;
     call('getNewToken').then((result) {
       _userId = result['id'];
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedIn;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       return call('removeOtherTokens');
     }).catchError((error) {
+      _logInStatus = UserLogInStatus.loggedOut;
       completer.completeError(error);
     });
     return completer.future;
@@ -418,8 +442,8 @@ class MeteorClient {
       String user, String password,
       {int delayOnLoginErrorSecond = 0}) {
     var completer = Completer<MeteorClientLoginResult>();
-    _loggingIn = true;
-    _loggingInSubject.add(_loggingIn);
+    _logInStatus = UserLogInStatus.loggingIn;
+    _logInStatusSubject.add(_logInStatus);
 
     var selector;
     if (!user.contains('@')) {
@@ -441,8 +465,8 @@ class MeteorClient {
       _token = result['token'];
       _tokenExpires =
           DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
-      _loggingIn = false;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggedIn;
+      _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       completer.complete(MeteorClientLoginResult(
         userId: _userId,
@@ -454,8 +478,8 @@ class MeteorClient {
         _userId = null;
         _token = null;
         _tokenExpires = null;
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
+        _logInStatus = UserLogInStatus.loggedOut;
+        _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId);
         completer.completeError(error);
       });
@@ -488,8 +512,8 @@ class MeteorClient {
     if (_token != null &&
         _tokenExpires != null &&
         _tokenExpires.isAfter(DateTime.now())) {
-      _loggingIn = true;
-      _loggingInSubject.add(_loggingIn);
+      _logInStatus = UserLogInStatus.loggingIn;
+      _logInStatusSubject.add(_logInStatus);
       call('login', args: [
         {'resume': _token}
       ]).then((result) {
@@ -497,8 +521,8 @@ class MeteorClient {
         _token = result['token'];
         _tokenExpires = DateTime.fromMillisecondsSinceEpoch(
             result['tokenExpires']['\$date']);
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
+        _logInStatus = UserLogInStatus.loggedIn;
+        _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId);
         completer.complete(MeteorClientLoginResult(
           userId: _userId,
@@ -509,8 +533,8 @@ class MeteorClient {
         _userId = null;
         _token = null;
         _tokenExpires = null;
-        _loggingIn = false;
-        _loggingInSubject.add(_loggingIn);
+        _logInStatus = UserLogInStatus.loggedOut;
+        _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId);
         completer.completeError(error);
       });

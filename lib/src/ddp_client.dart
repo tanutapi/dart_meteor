@@ -80,7 +80,7 @@ class DdpClient {
   final Random _random = Random.secure();
 
   final StreamController<DdpConnectionStatus> _statusStreamController =
-      StreamController<DdpConnectionStatus>();
+      StreamController();
   StreamController<dynamic> dataStreamController = StreamController();
   DdpConnectionStatus _connectionStatus;
   String _url;
@@ -123,7 +123,8 @@ class DdpClient {
   /// For example, this can be used to re-establish the appropriate authentication context on the connection.
   /// callback:
   /// The function to call. It will be called with a single argument, the connection object that is reconnecting.
-  void onReconnect(void Function(OnReconnectionCallback reconnection) callback) {
+  void onReconnect(
+      void Function(OnReconnectionCallback reconnection) callback) {
     var id = _generateUID(16);
     var onReconnectCallback =
         OnReconnectionCallback(ddpClient: this, id: id, callback: callback);

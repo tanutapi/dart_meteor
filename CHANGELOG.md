@@ -1,3 +1,6 @@
+## 1.1.2
+- Lower crypto package version to match the flutter_test.
+
 ## 1.1.1
 - Allows both int and String for MeteorError.error
 

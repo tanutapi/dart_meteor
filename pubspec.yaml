@@ -7,7 +7,7 @@ environment:
   sdk: '>=2.2.0 <3.0.0'
 
 dependencies:
-  crypto: ^2.1.5
+  crypto: ^2.1.4
   rxdart: ^0.24.1
 
 dev_dependencies:
