@@ -162,7 +162,7 @@ meteor.prepareCollection('your_collections');
 Then access it with
 
 ```dart
-meteor.collections['test']
+meteor.collections['your_collections']
 ```
 
 which return rxdart's Observable that you can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
