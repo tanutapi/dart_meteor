@@ -5,24 +5,30 @@ import 'package:dart_meteor/dart_meteor.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Environment', () {
-    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
-
-    test('meteor.isClient', () {
-      expect(meteor.isClient(), isTrue);
-    });
-
-    test('meteor.isServer', () {
-      expect(meteor.isServer(), isFalse);
-    });
-
-    test('meteor.isCordova', () {
-      expect(meteor.isCordova(), isFalse);
-    });
-  });
+  // group('Environment', () {
+  //   var meteor = MeteorClient.connect(
+  //     url: 'ws://127.0.0.1:3000',
+  //     debug: true,
+  //   );
+  //
+  //   test('meteor.isClient', () {
+  //     expect(meteor.isClient(), isTrue);
+  //   });
+  //
+  //   test('meteor.isServer', () {
+  //     expect(meteor.isServer(), isFalse);
+  //   });
+  //
+  //   test('meteor.isCordova', () {
+  //     expect(meteor.isCordova(), isFalse);
+  //   });
+  // });
 
   group('MeteorError', () {
-    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
 
     setUp(() async {
       meteor.reconnect();
@@ -53,7 +59,10 @@ void main() {
   });
 
   group('Login', () {
-    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
 
     setUp(() async {
       meteor.reconnect();
@@ -72,7 +81,10 @@ void main() {
   });
 
   group('Subscription', () {
-    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
 
     setUp(() async {
       meteor.reconnect();
@@ -107,7 +119,10 @@ void main() {
   });
 
   group('subscription', () {
-    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
 
     setUp(() async {
       meteor.reconnect();
@@ -199,7 +214,10 @@ void main() {
   });
 
   group('Reactive with rxdart', () {
-    var meteor = MeteorClient.connect(url: 'ws://127.0.0.1:3000');
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
 
     setUp(() async {
       meteor.reconnect();
@@ -217,15 +235,16 @@ void main() {
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
       var reactive = BehaviorSubject();
-      SubscriptionHandler sub;
+      SubscriptionHandler? sub;
       reactive.add('user1');
       reactive.listen((username) {
         if (sub != null) {
-          sub.stop();
+          sub!.stop();
         }
         sub = meteor.subscribe('assets', args: [username], onReady: () async {
-          var assets = await meteor.collectionCurrentValue('assets');
-          if (username == 'user2' && assets.length == 1) {
+          await Future.delayed(Duration(seconds: 2));
+          var assets = meteor.collectionCurrentValue('assets');
+          if (username == 'user2' && assets!.length == 1) {
             assets.forEach((k, v) {
               if (v['owner'] == 'user2') {
                 completer.complete(true);
@@ -261,8 +280,9 @@ void main() {
       reactive.add('user1');
       reactive.listen((username) {
         sub = meteor.subscribe('assets', args: [username], onReady: () async {
-          var assets = await meteor.collectionCurrentValue('assets');
-          if (username == 'user2' && assets.length == 2) {
+          await Future.delayed(Duration(seconds: 2));
+          var assets = meteor.collectionCurrentValue('assets');
+          if (username == 'user2' && assets!.length == 2) {
             assets.forEach((k, v) {
               if (v['owner'] == 'user2') {
                 completer.complete(true);
