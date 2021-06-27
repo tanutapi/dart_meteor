@@ -165,6 +165,14 @@ class DdpClient {
   Future<dynamic> apply(String method, List<dynamic> params) {
     var methodCompleter = Completer<dynamic>();
     var newId = _currentMethodId.toString();
+    params = params.map((x) {
+      if (x is DateTime) {
+        return {
+          '\$date': x.millisecondsSinceEpoch,
+        };
+      }
+      return x;
+    }).toList();
     _sendMsgMethod(method, params, newId);
     _currentMethodId++;
     _methodCompleters[newId] = methodCompleter;
