@@ -186,7 +186,7 @@ void main() {
       var completer = Completer();
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
-      await meteor.subscribe(
+      meteor.subscribe(
         'messages',
       );
       meteor.collection('messages').listen((value) {
@@ -210,6 +210,27 @@ void main() {
       if (!completer.isCompleted) {
         completer.complete(false);
       }
+    });
+
+    test('Method that return a Number', () async {
+      var result = await meteor.call('methodThatReturnNumber');
+      expect(result, isA<double>());
+    });
+
+    test('Method that return a String', () async {
+      var result = await meteor.call('methodThatReturnString');
+      expect(result, isA<String>());
+    });
+
+    test('Method that return a DateTime', () async {
+      var result = await meteor.call('methodThatReturnDateTime');
+      expect(result, isA<DateTime>());
+    });
+
+    test('Method that return a Object', () async {
+      var result = await meteor.call('methodThatReturnObject');
+      expect(result, isA<Map>());
+      expect(result['createdAt'], isA<DateTime>());
     });
   });
 
