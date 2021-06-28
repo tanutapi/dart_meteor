@@ -472,7 +472,9 @@ class DdpClient {
             if (dataMap['error'] != null) {
               completer.completeError(dataMap['error']);
             } else {
-              completer.complete(dataMap['result']);
+              var result = dataMap['result'];
+              _formatSpecialFieldValues(result);
+              completer.complete(result);
             }
             _methodCompleters.remove(id);
           } else {
@@ -484,6 +486,27 @@ class DdpClient {
         printDebug(methodIds.toString());
       }
     }
+  }
+
+  /// Format a special value
+  /// ex.
+  /// createdAt: {$date: 1598804210504}
+  /// become
+  /// createdAt: DateTime Instance 2020-08-30 23:15:57.471
+  void _formatSpecialFieldValues(
+    Map<dynamic, dynamic> fields, {
+    Map<dynamic, dynamic>? parent,
+    String? field,
+  }) {
+    fields.forEach((k, v) {
+      if (v is Map) {
+        _formatSpecialFieldValues(v, parent: fields, field: k);
+      } else if (k == '\$date') {
+        if (parent != null && field != null) {
+          parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
+        }
+      }
+    });
   }
 
   void _onDone() {

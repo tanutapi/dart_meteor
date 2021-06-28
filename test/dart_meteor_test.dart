@@ -58,6 +58,43 @@ void main() {
     });
   });
 
+  group('Method', () {
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
+
+    setUp(() async {
+      meteor.reconnect();
+      await Future.delayed(Duration(seconds: 2));
+    });
+
+    tearDown(() {
+      meteor.disconnect();
+    });
+
+    test('Method that return a Number', () async {
+      var result = await meteor.call('methodThatReturnNumber');
+      expect(result, isA<double>());
+    });
+
+    test('Method that return a String', () async {
+      var result = await meteor.call('methodThatReturnString');
+      expect(result, isA<String>());
+    });
+
+    test('Method that return a DateTime', () async {
+      var result = await meteor.call('methodThatReturnDateTime');
+      expect(result, isA<DateTime>());
+    });
+
+    test('Method that return a Object', () async {
+      var result = await meteor.call('methodThatReturnObject');
+      expect(result, isA<Map>());
+      expect(result['createdAt'], isA<DateTime>());
+    });
+  });
+
   group('Login', () {
     var meteor = MeteorClient.connect(
       url: 'ws://127.0.0.1:3000',
@@ -210,27 +247,6 @@ void main() {
       if (!completer.isCompleted) {
         completer.complete(false);
       }
-    });
-
-    test('Method that return a Number', () async {
-      var result = await meteor.call('methodThatReturnNumber');
-      expect(result, isA<double>());
-    });
-
-    test('Method that return a String', () async {
-      var result = await meteor.call('methodThatReturnString');
-      expect(result, isA<String>());
-    });
-
-    test('Method that return a DateTime', () async {
-      var result = await meteor.call('methodThatReturnDateTime');
-      expect(result, isA<DateTime>());
-    });
-
-    test('Method that return a Object', () async {
-      var result = await meteor.call('methodThatReturnObject');
-      expect(result, isA<Map>());
-      expect(result['createdAt'], isA<DateTime>());
     });
   });
 
