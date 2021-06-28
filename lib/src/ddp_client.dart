@@ -33,6 +33,7 @@ class DdpConnectionStatus {
 }
 
 class SubscriptionHandler {
+
   final DdpClient ddpClient;
   final String subId;
   final StreamController<bool> _readyStreamController = StreamController();
@@ -40,6 +41,7 @@ class SubscriptionHandler {
   final String subName;
   final List<dynamic> args;
   SubscriptionHandler(this.ddpClient, this.subId, this.subName, this.args) {
+
     _readyStream = _readyStreamController.stream.asBroadcastStream();
     _readyStreamController.sink.add(false);
   }

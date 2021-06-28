@@ -81,6 +81,7 @@ class MeteorClient {
   String? _userId;
   String? _token;
   DateTime? _tokenExpires;
+
   UserLogInStatus _logInStatus = UserLogInStatus.loggedOut;
 
   final Map<String, SubscriptionHandler> _subscriptions = {};
@@ -89,6 +90,7 @@ class MeteorClient {
   final Map<String, Map<String, dynamic>> _collections = {};
   final Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject =
       {};
+  
   final Map<String, Stream<Map<String, dynamic>>> _collectionsStreams = {};
 
   MeteorClient.connect({required String url, bool debug = false}) {
@@ -357,6 +359,12 @@ class MeteorClient {
 
   /// A Map containing user documents.
   Stream<Map<String, dynamic>> get users => _collectionsStreams['users']!;
+
+  /// Current log-in status of login methods (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser).
+  /// A reactive data source.
+  Stream<UserLogInStatus> logInStatus() {
+    return _logInStatusStream;
+  }
 
   /// Current log-in status of login methods (such as Meteor.loginWithPassword, Meteor.loginWithFacebook, or Accounts.createUser).
   /// A reactive data source.
