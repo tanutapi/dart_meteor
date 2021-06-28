@@ -126,7 +126,7 @@ class MeteorClient {
       dynamic fields = data['fields'];
       if (fields != null) {
         fields['_id'] = id;
-        _formatSpecialFieldValues(fields);
+        DdpClient.formatSpecialFieldValues(fields);
       }
 
       _prepareCollection(collectionName);
@@ -195,27 +195,6 @@ class MeteorClient {
           BehaviorSubject<Map<String, dynamic>>();
       _collectionsStreams[collectionName] = subject.stream;
     }
-  }
-
-  /// Format a special value
-  /// ex.
-  /// createdAt: {$date: 1598804210504}
-  /// become
-  /// createdAt: DateTime Instance 2020-08-30 23:15:57.471
-  void _formatSpecialFieldValues(
-    Map<dynamic, dynamic> fields, {
-    Map<dynamic, dynamic>? parent,
-    String? field,
-  }) {
-    fields.forEach((k, v) {
-      if (v is Map) {
-        _formatSpecialFieldValues(v, parent: fields, field: k);
-      } else if (k == '\$date') {
-        if (parent != null && field != null) {
-          parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
-        }
-      }
-    });
   }
 
   /// Get [Stream] of `collection` on given a `collectionName`.
@@ -426,8 +405,7 @@ class MeteorClient {
     call('getNewToken').then((result) {
       _userId = result['id'];
       _token = result['token'];
-      _tokenExpires =
-          DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+      _tokenExpires = result['tokenExpires'];
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
@@ -476,8 +454,7 @@ class MeteorClient {
     ]).then((result) {
       _userId = result['id'];
       _token = result['token'];
-      _tokenExpires =
-          DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+      _tokenExpires = result['tokenExpires'];
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId!);
@@ -536,8 +513,7 @@ class MeteorClient {
       ]).then((result) {
         _userId = result['id'];
         _token = result['token'];
-        _tokenExpires = DateTime.fromMillisecondsSinceEpoch(
-            result['tokenExpires']['\$date']);
+        _tokenExpires = result['tokenExpires'];
         _logInStatus = UserLogInStatus.loggedIn;
         _logInStatusSubject.add(_logInStatus);
         _userIdSubject.add(_userId!);
