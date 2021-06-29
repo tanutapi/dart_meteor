@@ -1,3 +1,6 @@
+## 2.0.0
+- Null safety and some API changes.
+
 ## 1.1.2
 - Lower crypto package version to match the flutter_test.
 
