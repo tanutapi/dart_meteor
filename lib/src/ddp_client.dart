@@ -494,19 +494,26 @@ class DdpClient {
   /// become
   /// createdAt: DateTime Instance 2020-08-30 23:15:57.471
   static void formatSpecialFieldValues(
-    Map<dynamic, dynamic> fields, {
-    Map<dynamic, dynamic>? parent,
-    String? field,
+    dynamic object, {
+    dynamic parent,
+    dynamic field,
   }) {
-    fields.forEach((k, v) {
-      if (v is Map) {
-        DdpClient.formatSpecialFieldValues(v, parent: fields, field: k);
-      } else if (k == '\$date') {
-        if (parent != null && field != null) {
-          parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
+    if (object is Map<dynamic, dynamic>) {
+      object.forEach((k, v) {
+        if (v is Map || v is List) {
+          DdpClient.formatSpecialFieldValues(v, parent: object, field: k);
+        } else if (k == '\$date') {
+          if (parent != null && field != null) {
+            parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
+            return parent[field];
+          }
         }
-      }
-    });
+      });
+    } else if (object is List) {
+      object.asMap().forEach((idx, subObject) {
+        formatSpecialFieldValues(subObject, parent: object, field: idx);
+      });
+    }
   }
 
   void _onDone() {

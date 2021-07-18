@@ -5,24 +5,24 @@ import 'package:dart_meteor/dart_meteor.dart';
 import 'package:test/test.dart';
 
 void main() {
-  // group('Environment', () {
-  //   var meteor = MeteorClient.connect(
-  //     url: 'ws://127.0.0.1:3000',
-  //     debug: true,
-  //   );
-  //
-  //   test('meteor.isClient', () {
-  //     expect(meteor.isClient(), isTrue);
-  //   });
-  //
-  //   test('meteor.isServer', () {
-  //     expect(meteor.isServer(), isFalse);
-  //   });
-  //
-  //   test('meteor.isCordova', () {
-  //     expect(meteor.isCordova(), isFalse);
-  //   });
-  // });
+  group('Environment', () {
+    var meteor = MeteorClient.connect(
+      url: 'ws://127.0.0.1:3000',
+      debug: true,
+    );
+
+    test('meteor.isClient', () {
+      expect(meteor.isClient(), isTrue);
+    });
+
+    test('meteor.isServer', () {
+      expect(meteor.isServer(), isFalse);
+    });
+
+    test('meteor.isCordova', () {
+      expect(meteor.isCordova(), isFalse);
+    });
+  });
 
   group('MeteorError', () {
     var meteor = MeteorClient.connect(
@@ -92,6 +92,81 @@ void main() {
       var result = await meteor.call('methodThatReturnObject');
       expect(result, isA<Map>());
       expect(result['createdAt'], isA<DateTime>());
+    });
+
+    test('Method that return a nested Date Object', () async {
+      var result = await meteor.call('methodThatReturnNestedDateObject');
+      // From the simple-meteor-chat test backend project...
+      // return {
+      //   a: {
+      //     createdAt: new Date(),
+      //     b: {
+      //       c: {
+      //         createdAt: new Date(),
+      //       }
+      //     }
+      //   },
+      //   createdAt: new Date(),
+      // };
+      expect(result, isA<Map>());
+      expect(result['createdAt'], isA<DateTime>());
+      expect(result['a']['createdAt'], isA<DateTime>());
+      expect(result['a']['b']['c']['createdAt'], isA<DateTime>());
+    });
+
+    test('Method that return an array of nested Date Objects', () async {
+      var result = await meteor.call('methodThatReturnArrayOfNestedDateObject');
+      // From the simple-meteor-chat test backend project...
+      // return [{
+      //   a: {
+      //     createdAt: date1,
+      //     b: {
+      //       c: [{
+      //         createdAt: date2,
+      //       }, {
+      //         createdAt: date3,
+      //       }, {
+      //         createdAt: date4,
+      //       }],
+      //       d: [date5, date6],
+      //     }
+      //   },
+      //   createdAt: [date5, date6],
+      // }, {
+      //   a: {
+      //     createdAt: date1,
+      //     b: {
+      //       c: [{
+      //         createdAt: date2,
+      //       }, {
+      //         createdAt: date3,
+      //       }, {
+      //         createdAt: date4,
+      //       }],
+      //       d: [date5, date6],
+      //     }
+      //   },
+      //   createdAt: [date5, date6],
+      // }];
+      print(result);
+      expect(result, isA<List>());
+      expect(result[0]['createdAt'][0], isA<DateTime>());
+      expect(result[0]['createdAt'][1], isA<DateTime>());
+      expect(result[0]['a']['createdAt'], isA<DateTime>());
+      expect(result[0]['a']['b']['c'][0]['createdAt'], isA<DateTime>());
+      expect(result[0]['a']['b']['c'][1]['createdAt'], isA<DateTime>());
+      expect(result[0]['a']['b']['c'][2]['createdAt'], isA<DateTime>());
+      expect(result[0]['a']['b']['d'][0], isA<DateTime>());
+      expect(result[0]['a']['b']['d'][1], isA<DateTime>());
+
+      expect(result[1]['createdAt'][0], isA<DateTime>());
+      expect(result[1]['createdAt'][1], isA<DateTime>());
+      expect(result[1]['a']['createdAt'], isA<DateTime>());
+      expect(result[1]['a']['b']['c'][0]['createdAt'], isA<DateTime>());
+      expect(result[1]['a']['b']['c'][1]['createdAt'], isA<DateTime>());
+      expect(result[1]['a']['b']['c'][2]['createdAt'], isA<DateTime>());
+      expect(result[1]['a']['b']['d'][0], isA<DateTime>());
+      expect(result[1]['a']['b']['d'][1], isA<DateTime>());
     });
   });
 

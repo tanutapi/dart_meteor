@@ -1,3 +1,6 @@
+## 2.0.1
+- Fix a $date bug when parsing an array result from methods/collections.
+
 ## 2.0.0
 - Null safety and some API changes.
 
