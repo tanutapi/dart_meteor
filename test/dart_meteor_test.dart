@@ -4,7 +4,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:dart_meteor/dart_meteor.dart';
 import 'package:test/test.dart';
 
-var url = 'ws://thaifastdict.com:3000';
+var url = 'ws://127.0.0.1:3000';
 
 void main() {
   group('Environment', () {
