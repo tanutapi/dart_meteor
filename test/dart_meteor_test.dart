@@ -4,10 +4,12 @@ import 'package:rxdart/rxdart.dart';
 import 'package:dart_meteor/dart_meteor.dart';
 import 'package:test/test.dart';
 
+var url = 'ws://thaifastdict.com:3000';
+
 void main() {
   group('Environment', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 
@@ -26,7 +28,7 @@ void main() {
 
   group('MeteorError', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 
@@ -60,7 +62,7 @@ void main() {
 
   group('Method', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 
@@ -170,9 +172,9 @@ void main() {
     });
   });
 
-  group('Login', () {
+  group('Login and logout', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 
@@ -188,13 +190,32 @@ void main() {
     test('meteor.loginWithPassword', () async {
       var result = await meteor.loginWithPassword('user1', 'password1');
       print('MeteorClientLoginResult: ' + result.toString());
-      expect(meteor.userId(), isNotNull);
+      print('UserID: ${meteor.userIdCurrentValue()}');
+      expect(meteor.userIdCurrentValue(), isNotNull);
+    });
+
+    test('meteor.logout', () async {
+      var result = await meteor.loginWithPassword('user1', 'password1');
+      print('MeteorClientLoginResult: ' + result.toString());
+      print('UserID: ${meteor.userIdCurrentValue()}');
+      expect(meteor.userIdCurrentValue(), isNotNull);
+      await meteor.logout();
+      expect(meteor.userIdCurrentValue(), isNull);
+    });
+
+    test('meteor.logoutOtherClients', () async {
+      var result = await meteor.loginWithPassword('user1', 'password1');
+      print('MeteorClientLoginResult: ' + result.toString());
+      print('UserID: ${meteor.userIdCurrentValue()}');
+      expect(meteor.userIdCurrentValue(), isNotNull);
+      await meteor.logoutOtherClients();
+      expect(meteor.userIdCurrentValue(), isNotNull);
     });
   });
 
   group('Subscription', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 
@@ -232,7 +253,7 @@ void main() {
 
   group('subscription', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 
@@ -327,7 +348,7 @@ void main() {
 
   group('Reactive with rxdart', () {
     var meteor = MeteorClient.connect(
-      url: 'ws://127.0.0.1:3000',
+      url: url,
       debug: true,
     );
 

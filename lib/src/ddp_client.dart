@@ -91,6 +91,7 @@ class DdpClient {
   WebSocket? _socket;
   int maxRetryCount;
   final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
+  String? _serverId;
   String? _sessionId;
   int _currentMethodId = 0;
   bool _flagToBeResetAtPongMsg = false;
@@ -217,6 +218,7 @@ class DdpClient {
     // Reset ping-pong flag
     _flagToBeResetAtPongMsg = false;
 
+    _serverId = null;
     _sessionId = null;
     _connectionStatus.connected = false;
     _connectionStatus.status = DdpConnectionStatusValues.offline;
@@ -245,6 +247,7 @@ class DdpClient {
           onError: _onError,
           cancelOnError: true,
         );
+        _sendMsgConnect();
       } catch (err) {
         print(err);
         _connectionStatus.status = DdpConnectionStatusValues.failed;
@@ -297,7 +300,7 @@ class DdpClient {
       var data = {
         'msg': 'connect',
         'version': '1',
-        'support': ['1'],
+        'support': ['1', 'pre1', 'pre2'],
       };
       if (_sessionId != null) {
         data['session'] = _sessionId!;
@@ -388,7 +391,10 @@ class DdpClient {
     var msg = dataMap['msg'];
     if (_connectionStatus.status == DdpConnectionStatusValues.connecting) {
       if (dataMap['server_id'] != null) {
-        _sendMsgConnect();
+        _serverId = dataMap['server_id'];
+        if (debug) {
+          print('DDP[${_socket.hashCode}] - Server ID: $_serverId');
+        }
       } else if (msg == 'connected') {
         _onReconnectCallbacks.values.forEach((reconnectCallback) {
           reconnectCallback.callback(reconnectCallback);
@@ -411,6 +417,7 @@ class DdpClient {
           _sendMsgPing();
         });
       } else if (msg == 'failed') {
+        _serverId = null;
         _sessionId = null;
         _connectionStatus.connected = false;
         _connectionStatus.status = DdpConnectionStatusValues.failed;

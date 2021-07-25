@@ -1,3 +1,6 @@
+## 2.0.2
+- Fix bugs on connecting to Meteor 2.x.x and on logout.
+
 ## 2.0.1
 - Fix a $date bug when parsing an array result from methods/collections.
 

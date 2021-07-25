@@ -158,7 +158,10 @@ class MeteorClient {
 
       _collectionsSubject[collectionName]!.add(_collections[collectionName]!);
       if (collectionName == 'users' && id == _userId) {
-        _userSubject.add(_collections['users']![_userId]);
+        if (_collections['users'] != null &&
+            _collections['users']![_userId] != null) {
+          _userSubject.add(_collections['users']![_userId]);
+        }
       }
     })
       ..onError((dynamic error) {})
@@ -184,7 +187,10 @@ class MeteorClient {
     });
 
     userId().listen((userId) {
-      _userSubject.add(_collections['users']![userId]);
+      if (_collections['users'] != null &&
+          _collections['users']![userId] != null) {
+        _userSubject.add(_collections['users']![userId]);
+      }
     });
   }
 
@@ -400,7 +406,7 @@ class MeteorClient {
 
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
   Future logoutOtherClients() {
-    var completer = Completer<String>();
+    var completer = Completer();
     _logInStatus = UserLogInStatus.loggingIn;
     call('getNewToken').then((result) {
       _userId = result['id'];
@@ -409,7 +415,9 @@ class MeteorClient {
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
-      return call('removeOtherTokens');
+      call('removeOtherTokens').then((value) {
+        completer.complete();
+      });
     }).catchError((error) {
       _logInStatus = UserLogInStatus.loggedOut;
       completer.completeError(error);
