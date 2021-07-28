@@ -1,3 +1,12 @@
+## 2.0.2
+- Fix bugs on connecting to Meteor 2.x.x and on logout function.
+
+## 2.0.1
+- Fix a $date bug when parsing an array result from methods/collections.
+
+## 2.0.0
+- Null safety and some API changes.
+
 ## 1.1.2
 - Lower crypto package version to match the flutter_test.
 

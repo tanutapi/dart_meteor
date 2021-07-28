@@ -6,9 +6,19 @@ For Flutter Web (web branch) ![](https://github.com/tanutapi/dart_meteor/workflo
 
 This library makes a connection between the Meteor backend and the Flutter app simply. Design to work seamlessly with StreamBuilder and FutureBuilder.
 
+## Change on 2.0.0 ##
+
+Passing arguments to meteor method is now optional. In version 1.x.x you did: `meteor.call('your_method_name', [param1, param2])`. Now in version 2.x.x, it will be `meteor.call('your_method_name', args: [param1, param2])` or just `meteor.call('your_method_name')` if you don't want to pass any argument to your method.
+
+Same as subscription. In version 1.x.x you did: `meteor.subscribe('your_pub', [param1, param2])`. Now in version 2.x.x, it will be `meteor.subscribe('your_pub', args: [param1, param2])` or just `meteor.subscribe('your_pub')` if you don't want to pass any argument to make your subscription.
+
+In version 1.x.x, you have to call `meteor.prepareCollection('your_collection_name')` before you can use it. Now in version 2.x.x, you don't have to prepare a collection. You now access the collection by calling `collection` method `meteor.collection('messages').listen((value) { ... })`.
+
+`DateTime` are now directly support. You can pass a `DateTime` variable as a meteor method parameter and receive DateTime from the collections and methods.
+
 ## Usage
 
-I just publish a post on Medium showing how to handle connection status, user authentication, and subscriptions. Please check https://medium.com/@tanutapi/writing-flutter-mobile-application-with-meteor-backend-643d2c1947d0?source=friends_link&sk=52ce2fa2603934e7395e2d19dd54e06c
+I have published a post on Medium showing how to handle connection status, user authentication, and subscriptions. Please check https://medium.com/@tanutapi/writing-flutter-mobile-application-with-meteor-backend-643d2c1947d0?source=friends_link&sk=52ce2fa2603934e7395e2d19dd54e06c
 
 A simple usage example:
 
@@ -34,7 +44,7 @@ class _MyAppState extends State<MyApp> {
   String _methodResult = '';
 
   void _callMethod() {
-    meteor.call('helloMethod', []).then((result) {
+    meteor.call('helloMethod').then((result) {
       setState(() {
         _methodResult = result.toString();
       });
@@ -134,10 +144,10 @@ class _MyAppState extends State<MyApp> {
 
 ## Making a method call to your server
 
-Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something went wrong. You can also use it with a FutureBuilder.
+Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something went wrong. 
 
 ```dart
-meteor.call('helloMethod', []).then((result) {
+meteor.call('helloMethod').then((result) {
   setState(() {
     _methodResult = result.toString();
   });
@@ -149,23 +159,30 @@ meteor.call('helloMethod', []).then((result) {
   }
 });
 ```
+You can also use it with a FutureBuilder.
+```dart
+FutureBuilder<int>(
+  future: meteor.call('sumMethod', args: [5, 10]),
+  builder: (context, snapshot) {
+    if (snapshot.hasData) {
+      // your snapshot.data should be 5 + 10 = 15
+      return Text('Answer is: ${snapshot.data}');
+    }
+  },
+),
+```
 
 You can found an example project inside [/example][example].
 
 ## Collections & Subscriptions
-Prepare your collections before use. You can use `prepareCollection` method in `initState()` or in your `main` function.
+You can access your collections by calling `collection('your_collection_name')`.
+It will return a `Stream` which you can use it with your `StreamBuilder` or wherever you want. Through the returned `Stream` reference you can listen the updates of the collection.
 
 ```dart
-meteor.prepareCollection('your_collections');
+meteor.collection('your_collections');
 ```
 
-Then access it with
-
-```dart
-meteor.collections['test']
-```
-
-which return rxdart's Observable that you can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
+Which return a stream that backed by rxdart BehaviorSubject, a special StreamController that captures the latest item that has been added to the controller, and emits that as the first item to any new listener. You can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
 
 ```dart
 class YourWidget extends StatefulWidget {
@@ -181,8 +198,7 @@ class _YourWidgetState extends State<YourWidget> {
   @override
   void initState() {
     super.initState();
-    meteor.prepareCollection('your_collection');
-    _subscriptionHandler = meteor.subscribe('your_pub', []);
+    _subscriptionHandler = meteor.subscribe('your_pub', args: ['param_1', 'param_2']);
   }
 
   @override
@@ -194,7 +210,7 @@ class _YourWidgetState extends State<YourWidget> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: meteor.collections['your_collection'],
+      stream: meteor.collection('your_collection'),
       builder:
           (context, AsyncSnapshot<Map<String, dynamic>> snapshot) {
         int docCount = 0;
@@ -207,6 +223,25 @@ class _YourWidgetState extends State<YourWidget> {
   }
 }
 ```
+
+The collection was return as a Map<String, dynamic>. The key is a document .\_id and its value is the whole document.
+
+Ex.
+```
+{
+  "DGbsysgxzSf7Cr8Jg": {
+    "_id": "DGbsysgxzSf7Cr8Jg", 
+    field1: 0, 
+    field2: "a", 
+    field3: true, 
+    field4: SomeDate
+  }
+}
+```
+We did not provide some kind of minimongo. We believe that you can use `reduce`, `map`, and `where` with the collection and get the same result as you did with a query in `minimongo` `meteor` web client.
+
+## Don't want to access data via stream
+Getting the current data from stream is sometime complicated. Especially when you just want to get the latest value just for a condition checking. You can access the latest value from the `collection`, `user`, `userId` directly with `meteor.collectionCurrentValue('your_collection_name')`, `meteor.userCurrentValue()`, and `meteor.userIdCurrentValue()`.
 
 ## Features and bugs
 
