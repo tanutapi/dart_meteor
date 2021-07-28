@@ -452,7 +452,6 @@ class MeteorClient {
   Future<MeteorClientLoginResult> _loginWithExistingToken() {
     Completer<MeteorClientLoginResult> completer = Completer();
     print('Trying to login with existing token...');
-    print('Token is ${_token}');
     if (_tokenExpires != null) {
       print('Token expires ${_tokenExpires.toString()}');
       print('now is ${DateTime.now()}');
