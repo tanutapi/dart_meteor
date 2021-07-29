@@ -13,3 +13,6 @@ build/
 
 # Directory created by dartdoc
 doc/api/
+
+# File changes automatically when you need run the example
+example/android/local.properties
