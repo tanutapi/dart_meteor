@@ -501,8 +501,7 @@ class MeteorClient {
     ]).then((result) {
       _userId = result['id'];
       _token = result['token'];
-      _tokenExpires =
-          DateTime.fromMillisecondsSinceEpoch(result['tokenExpires']['\$date']);
+      _tokenExpires = result['tokenExpires'];
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
