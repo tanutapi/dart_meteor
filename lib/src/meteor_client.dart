@@ -440,49 +440,16 @@ class MeteorClient {
   Future<MeteorClientLoginResult> loginWithPassword(
       String user, String password,
       {int delayOnLoginErrorSecond = 0}) {
-    var completer = Completer<MeteorClientLoginResult>();
-    _logInStatus = UserLogInStatus.loggingIn;
-    _logInStatusSubject.add(_logInStatus);
-
-    var selector;
-    if (!user.contains('@')) {
-      selector = {'username': user};
-    } else {
-      selector = {'email': user};
-    }
-
-    call('login', args: [
+    return login(
       {
-        'user': selector,
+        'user': !user.contains('@') ? {'username': user} : {'email': user},
         'password': {
           'digest': sha256.convert(utf8.encode(password)).toString(),
           'algorithm': 'sha-256'
         },
-      }
-    ]).then((result) {
-      _userId = result['id'];
-      _token = result['token'];
-      _tokenExpires = result['tokenExpires'];
-      _logInStatus = UserLogInStatus.loggedIn;
-      _logInStatusSubject.add(_logInStatus);
-      _userIdSubject.add(_userId!);
-      completer.complete(MeteorClientLoginResult(
-        userId: _userId!,
-        token: _token!,
-        tokenExpires: _tokenExpires!,
-      ));
-    }).catchError((error) {
-      Future.delayed(Duration(seconds: delayOnLoginErrorSecond), () {
-        _userId = null;
-        _token = null;
-        _tokenExpires = null;
-        _logInStatus = UserLogInStatus.loggedOut;
-        _logInStatusSubject.add(_logInStatus);
-        _userIdSubject.add(_userId);
-        completer.completeError(error);
-      });
-    });
-    return completer.future;
+      },
+      delayOnLoginErrorSecond: delayOnLoginErrorSecond,
+    );
   }
 
   Future<MeteorClientLoginResult?> loginWithToken({
@@ -513,23 +480,38 @@ class MeteorClient {
     if (_token != null &&
         _tokenExpires != null &&
         _tokenExpires!.isAfter(DateTime.now())) {
-      _logInStatus = UserLogInStatus.loggingIn;
+      return login({'resume': _token});
+    } else {
+      completer.complete(null);
+    }
+
+    return completer.future;
+  }
+
+  Future<MeteorClientLoginResult> login(
+    Map<String, dynamic> loginData, {
+    int delayOnLoginErrorSecond = 0,
+  }) {
+    var completer = Completer<MeteorClientLoginResult>();
+    _logInStatus = UserLogInStatus.loggingIn;
+    _logInStatusSubject.add(_logInStatus);
+
+    call('login', args: [
+      loginData,
+    ]).then((result) {
+      _userId = result['id'];
+      _token = result['token'];
+      _tokenExpires = result['tokenExpires'];
+      _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
-      call('login', args: [
-        {'resume': _token}
-      ]).then((result) {
-        _userId = result['id'];
-        _token = result['token'];
-        _tokenExpires = result['tokenExpires'];
-        _logInStatus = UserLogInStatus.loggedIn;
-        _logInStatusSubject.add(_logInStatus);
-        _userIdSubject.add(_userId!);
-        completer.complete(MeteorClientLoginResult(
-          userId: _userId!,
-          token: _token!,
-          tokenExpires: _tokenExpires!,
-        ));
-      }).catchError((error) {
+      _userIdSubject.add(_userId);
+      completer.complete(MeteorClientLoginResult(
+        userId: _userId!,
+        token: _token!,
+        tokenExpires: _tokenExpires!,
+      ));
+    }).catchError((error) {
+      Future.delayed(Duration(seconds: delayOnLoginErrorSecond), () {
         _userId = null;
         _token = null;
         _tokenExpires = null;
@@ -538,9 +520,7 @@ class MeteorClient {
         _userIdSubject.add(_userId);
         completer.completeError(error);
       });
-    } else {
-      completer.complete(null);
-    }
+    });
     return completer.future;
   }
 
