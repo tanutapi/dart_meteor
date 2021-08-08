@@ -1,3 +1,6 @@
+## 2.0.3
+- Sseparated login function.
+
 ## 2.0.2
 - Fix bugs on connecting to Meteor 2.x.x and on logout function.
 
