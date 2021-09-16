@@ -15,7 +15,7 @@ jobs:
       - run: sleep 5
       - run: docker ps
       - name: Start webapp
-        run: docker run --rm --name webapp --network test_net -p 3000:80  -e "MONGO_URL=mongodb://mongodb:27017/meteor" -e "ROOT_URL=http://webapp" -d tanutapi/simple-meteor-chat
+        run: docker run --rm --name webapp --network test_net -p 3000:80  -e "MONGO_URL=mongodb://mongodb:27017/meteor" -e "ROOT_URL=http://webapp" -d tanutapi/simple-meteor-chat:meteor1.8.3
       - run: sleep 5
       - run: docker ps
       - run: docker logs webapp
