@@ -88,6 +88,7 @@ class DdpClient {
   StreamController<dynamic> dataStreamController = StreamController();
   late DdpConnectionStatus _connectionStatus;
   String url;
+  String userAgent;
   WebSocket? _socket;
   int maxRetryCount;
   final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
@@ -108,6 +109,7 @@ class DdpClient {
     required this.url,
     this.maxRetryCount = 20,
     this.debug = false,
+    required this.userAgent,
   }) {
     _connectionStatus = DdpConnectionStatus(
       connected: false,
@@ -236,6 +238,7 @@ class DdpClient {
       _connectionStatus.reason = null;
       _statusStreamController.sink.add(_connectionStatus);
       try {
+        WebSocket.userAgent = userAgent;
         _socket = await WebSocket.connect(url).timeout(
           Duration(seconds: 5),
         );
