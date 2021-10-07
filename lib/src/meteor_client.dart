@@ -78,7 +78,6 @@ class MeteorClient {
   final BehaviorSubject<Map<String, dynamic>> _userSubject = BehaviorSubject();
   late Stream<Map<String, dynamic>> _userStream;
 
-  String? userAgent;
   String? _userId;
   String? _token;
   DateTime? _tokenExpires;
