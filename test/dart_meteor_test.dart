@@ -213,7 +213,7 @@ void main() {
       expect(meteor.userCurrentValue(), isNotNull);
       await meteor.logoutOtherClients();
       expect(meteor.userIdCurrentValue(), isNotNull);
-      expect(meteor.userCurrentValue(), isNull);
+      expect(meteor.userCurrentValue(), isNotNull);
     });
   });
 
