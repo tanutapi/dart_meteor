@@ -91,13 +91,13 @@ class MeteorClient {
       {};
   final Map<String, Stream<Map<String, dynamic>>> _collectionsStreams = {};
 
-  MeteorClient.connect({required String url, bool debug = false}) {
+  MeteorClient.connect({required String url, bool debug = false, userAgent = 'Dart Meteor / 2.0.3'}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
     if (!url.endsWith('websocket')) {
       url = url.replaceFirst(RegExp(r'/$'), '') + '/websocket';
     }
     print('MeteorClient[$hashCode] - Make a connection to $url');
-    connection = DdpClient(url: url, debug: debug);
+    connection = DdpClient(url: url, debug: debug, userAgent: userAgent);
 
     connection.status().listen((ddpStatus) {
       _statusSubject.add(ddpStatus);
