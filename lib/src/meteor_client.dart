@@ -75,8 +75,8 @@ class MeteorClient {
   final BehaviorSubject<String?> _userIdSubject = BehaviorSubject();
   late Stream<String?> _userIdStream;
 
-  final BehaviorSubject<Map<String, dynamic>> _userSubject = BehaviorSubject();
-  late Stream<Map<String, dynamic>> _userStream;
+  final BehaviorSubject<Map<String, dynamic>?> _userSubject = BehaviorSubject();
+  late Stream<Map<String, dynamic>?> _userStream;
 
   String? _userId;
   String? _token;
@@ -91,13 +91,16 @@ class MeteorClient {
       {};
   final Map<String, Stream<Map<String, dynamic>>> _collectionsStreams = {};
 
-  MeteorClient.connect({required String url, bool debug = false}) {
+  MeteorClient.connect(
+      {required String url,
+      bool debug = false,
+      userAgent = 'DartMeteor/2.0.4'}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
     if (!url.endsWith('websocket')) {
       url = url.replaceFirst(RegExp(r'/$'), '') + '/websocket';
     }
     print('MeteorClient[$hashCode] - Make a connection to $url');
-    connection = DdpClient(url: url, debug: debug);
+    connection = DdpClient(url: url, debug: debug, userAgent: userAgent);
 
     connection.status().listen((ddpStatus) {
       _statusSubject.add(ddpStatus);
@@ -190,6 +193,8 @@ class MeteorClient {
       if (_collections['users'] != null &&
           _collections['users']![userId] != null) {
         _userSubject.add(_collections['users']![userId]);
+      } else {
+        _userSubject.add(null);
       }
     });
   }
@@ -344,11 +349,11 @@ class MeteorClient {
   // Accounts
 
   /// Get the current user record, or null if no user is logged in. A reactive data source.
-  Stream<Map<String, dynamic>> user() {
+  Stream<Map<String, dynamic>?> user() {
     return _userStream;
   }
 
-  Map<String, dynamic> userCurrentValue() {
+  Map<String, dynamic>? userCurrentValue() {
     return _userSubject.value;
   }
 

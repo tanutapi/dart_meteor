@@ -199,8 +199,10 @@ void main() {
       print('MeteorClientLoginResult: ' + result.toString());
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
+      expect(meteor.userCurrentValue(), isNotNull);
       await meteor.logout();
       expect(meteor.userIdCurrentValue(), isNull);
+      expect(meteor.userCurrentValue(), isNull);
     });
 
     test('meteor.logoutOtherClients', () async {
@@ -208,8 +210,10 @@ void main() {
       print('MeteorClientLoginResult: ' + result.toString());
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
+      expect(meteor.userCurrentValue(), isNotNull);
       await meteor.logoutOtherClients();
       expect(meteor.userIdCurrentValue(), isNotNull);
+      expect(meteor.userCurrentValue(), isNotNull);
     });
   });
 
