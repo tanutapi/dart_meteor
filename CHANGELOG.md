@@ -1,5 +1,7 @@
+# 2.0.4
+- Fix bug on meteor.user() does not set back to null after user has been logged out.
 ## 2.0.3
-- Sseparated login function.
+- Separated login function.
 
 ## 2.0.2
 - Fix bugs on connecting to Meteor 2.x.x and on logout function.
