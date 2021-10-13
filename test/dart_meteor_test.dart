@@ -170,6 +170,28 @@ void main() {
       expect(result[1]['a']['b']['d'][0], isA<DateTime>());
       expect(result[1]['a']['b']['d'][1], isA<DateTime>());
     });
+
+    test('Method that accept a datetime', () async {
+      var result = await meteor
+          .call('methodThatReturnTheNextDay', args: [DateTime.now()]);
+      print(result);
+      expect(result, isA<Map>());
+      expect(result['input'], isA<DateTime>());
+      expect(result['output'], isA<DateTime>());
+    });
+
+    test('Method that accept object of datetime', () async {
+      var result = await meteor.call('methodThatAcceptObjectOfDate', args: [
+        {
+          'minDate': DateTime.now(),
+          'maxDate': DateTime.now(),
+        }
+      ]);
+      print(result);
+      expect(result, isA<Map>());
+      expect(result['minDate'], isA<DateTime>());
+      expect(result['maxDate'], isA<DateTime>());
+    });
   });
 
   group('Login and logout', () {
