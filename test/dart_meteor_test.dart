@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:collection/collection.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'package:dart_meteor/dart_meteor.dart';
@@ -464,6 +465,145 @@ void main() {
       if (!completer.isCompleted) {
         completer.complete(false);
       }
+    });
+  });
+
+  group('escapeSpecialFieldValues function', () {
+    test('escapeSpecialFieldValues 1', () {
+      var a = [
+        'a',
+        1,
+        true,
+        ['b', 2, false]
+      ];
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      assert(DeepCollectionEquality().equals(a, b));
+    });
+
+    test('escapeSpecialFieldValues 2', () {
+      var now = DateTime.now();
+      var a = [
+        'a',
+        1,
+        true,
+        ['b', 2, false],
+        now,
+      ];
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      assert(DeepCollectionEquality().equals(b, [
+        'a',
+        1,
+        true,
+        ['b', 2, false],
+        {'\$date': now.millisecondsSinceEpoch},
+      ]));
+    });
+
+    test('escapeSpecialFieldValues 3', () {
+      var now = DateTime.now();
+      var a = [
+        {
+          'a': 'a',
+          'b': 1,
+          'c': true,
+          'd': ['b', 2, false],
+          'e': now,
+        }
+      ];
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      print(a);
+      print(b);
+      assert(DeepCollectionEquality().equals(b, [
+        {
+          'a': 'a',
+          'b': 1,
+          'c': true,
+          'd': ['b', 2, false],
+          'e': {'\$date': now.millisecondsSinceEpoch},
+        }
+      ]));
+    });
+
+    test('escapeSpecialFieldValues 4', () {
+      var now = DateTime.now();
+      var a = [
+        {
+          'a': 'a',
+          'b': 1,
+          'c': true,
+          'd': ['b', 2, false],
+          'e': now,
+        },
+        now,
+        {
+          'a': 'a',
+          'b': 1,
+          'c': true,
+          'd': ['b', 2, now],
+          'e': now,
+        },
+      ];
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      print(a);
+      print(b);
+      assert(DeepCollectionEquality().equals(b, [
+        {
+          'a': 'a',
+          'b': 1,
+          'c': true,
+          'd': ['b', 2, false],
+          'e': {'\$date': now.millisecondsSinceEpoch},
+        },
+        {'\$date': now.millisecondsSinceEpoch},
+        {
+          'a': 'a',
+          'b': 1,
+          'c': true,
+          'd': [
+            'b',
+            2,
+            {'\$date': now.millisecondsSinceEpoch}
+          ],
+          'e': {'\$date': now.millisecondsSinceEpoch},
+        },
+      ]));
+    });
+
+    test('escapeSpecialFieldValues 5', () {
+      var now = DateTime.now();
+      var a = {'a': now};
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      print(a);
+      print(b);
+      assert(DeepCollectionEquality().equals(
+        b,
+        {
+          'a': {'\$date': now.millisecondsSinceEpoch},
+        },
+      ));
+    });
+
+    test('escapeSpecialFieldValues 6', () {
+      var now = DateTime.now();
+      var a = now;
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      print(a);
+      print(b);
+      assert(DeepCollectionEquality().equals(
+        b,
+        {'\$date': now.millisecondsSinceEpoch},
+      ));
+    });
+
+    test('escapeSpecialFieldValues 7', () {
+      var a = 1;
+      var b = DdpClient.escapeSpecialFieldValues(a);
+      print(a);
+      print(b);
+      assert(DeepCollectionEquality().equals(
+        b,
+        a,
+      ));
     });
   });
 }

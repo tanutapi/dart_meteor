@@ -155,6 +155,7 @@ class DdpClient {
   }) {
     var id = name + '-' + _generateUID(16);
     _subscriptions[id] = SubscriptionCallback(onStop: onStop, onReady: onReady);
+    params = DdpClient.escapeSpecialFieldValues(params);
     var handler = SubscriptionHandler(this, id, name, params);
     _subscriptionHandlers[id] = handler;
     _sendMsgSub(id, name, params);
