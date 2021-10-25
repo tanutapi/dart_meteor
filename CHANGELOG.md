@@ -1,5 +1,9 @@
+# 2.1.0
+- Fix a major bug on escaping DateTime when doing method call and subscribe.
+# 2.0.4
+- Fix bug on meteor.user() does not set back to null after user has been logged out.
 ## 2.0.3
-- Sseparated login function.
+- Separated login function.
 
 ## 2.0.2
 - Fix bugs on connecting to Meteor 2.x.x and on logout function.

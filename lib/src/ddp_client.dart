@@ -155,6 +155,7 @@ class DdpClient {
   }) {
     var id = name + '-' + _generateUID(16);
     _subscriptions[id] = SubscriptionCallback(onStop: onStop, onReady: onReady);
+    params = DdpClient.escapeSpecialFieldValues(params);
     var handler = SubscriptionHandler(this, id, name, params);
     _subscriptionHandlers[id] = handler;
     _sendMsgSub(id, name, params);
@@ -168,14 +169,7 @@ class DdpClient {
   Future<dynamic> apply(String method, List<dynamic> params) {
     var methodCompleter = Completer<dynamic>();
     var newId = _currentMethodId.toString();
-    params = params.map((x) {
-      if (x is DateTime) {
-        return {
-          '\$date': x.millisecondsSinceEpoch,
-        };
-      }
-      return x;
-    }).toList();
+    params = DdpClient.escapeSpecialFieldValues(params);
     _sendMsgMethod(method, params, newId);
     _currentMethodId++;
     _methodCompleters[newId] = methodCompleter;
@@ -496,6 +490,28 @@ class DdpClient {
         printDebug(methodIds.toString());
       }
     }
+  }
+
+  /// Escape a special value before sending it out to Meteor server
+  /// ex.
+  /// createdAt: DateTime Instance 2020-08-30 23:15:57.471
+  /// become
+  /// createdAt: {$date: 1598804210504}
+  static dynamic escapeSpecialFieldValues(dynamic params) {
+    if (params is DateTime) {
+      return {
+        '\$date': params.millisecondsSinceEpoch,
+      };
+    } else if (params is List) {
+      return params.map((param) => escapeSpecialFieldValues(param)).toList();
+    } else if (params is Map) {
+      var newMap = <String, dynamic>{};
+      params.forEach((key, value) {
+        newMap[key] = escapeSpecialFieldValues(value);
+      });
+      return newMap;
+    }
+    return params;
   }
 
   /// Format a special value
