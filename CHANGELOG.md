@@ -1,3 +1,5 @@
+# 2.1.1
+- Return null if no current value presents for the 'currentValue'.
 # 2.1.0
 - Fix a major bug on escaping DateTime when doing method call and subscribe.
 # 2.0.4
