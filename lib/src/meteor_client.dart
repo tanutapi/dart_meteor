@@ -220,7 +220,7 @@ class MeteorClient {
     if (_collections[collectionName] == null) {
       _prepareCollection(collectionName);
     }
-    return _collectionsSubject[collectionName]!.value;
+    return _collectionsSubject[collectionName]!.valueOrNull;
   }
 
   // ===========================================================
@@ -354,7 +354,7 @@ class MeteorClient {
   }
 
   Map<String, dynamic>? userCurrentValue() {
-    return _userSubject.value;
+    return _userSubject.valueOrNull;
   }
 
   /// Get the current user id, or null if no user is logged in. A reactive data source.
@@ -363,7 +363,7 @@ class MeteorClient {
   }
 
   String? userIdCurrentValue() {
-    return _userIdSubject.value;
+    return _userIdSubject.valueOrNull;
   }
 
   /// A Map containing user documents.
