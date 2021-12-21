@@ -234,13 +234,21 @@ void main() {
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
       expect(meteor.userCurrentValue(), isNotNull);
+
       var result2 = await meteor.logoutOtherClients();
       expect(result2, isNotNull);
       expect(meteor.userIdCurrentValue(), isNotNull);
       expect(meteor.userCurrentValue(), isNotNull);
+      // Must be the same userId
       expect(result2.userId, result1.userId);
+      // Must be a different token
       expect(result2.token, isNot(result1.token));
-      expect(result2.tokenExpires, isNot(result1.tokenExpires));
+      // From https://github.com/meteor/meteor/blob/dae7af832d08a8b19384ac19aa5a5a9b6b005e55/packages/accounts-base/accounts_server.js#L682
+      // Be careful not to generate a new token that has a later
+      // expiration than the curren token. Otherwise, a bad guy with a
+      // stolen token could use this method to stop his stolen token from
+      // ever expiring.
+      expect(result2.tokenExpires.millisecondsSinceEpoch, lessThanOrEqualTo(result1.tokenExpires.millisecondsSinceEpoch));
     });
   });
 
