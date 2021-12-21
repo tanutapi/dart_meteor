@@ -410,8 +410,8 @@ class MeteorClient {
   }
 
   /// Log out other clients logged in as the current user, but does not log out the client that calls this function.
-  Future logoutOtherClients() {
-    var completer = Completer();
+  Future<MeteorClientLoginResult> logoutOtherClients() {
+    var completer = Completer<MeteorClientLoginResult>();
     _logInStatus = UserLogInStatus.loggingIn;
     call('getNewToken').then((result) {
       _userId = result['id'];
@@ -421,7 +421,11 @@ class MeteorClient {
       _logInStatusSubject.add(_logInStatus);
       _userIdSubject.add(_userId);
       call('removeOtherTokens').then((value) {
-        completer.complete();
+        completer.complete(MeteorClientLoginResult(
+          userId: _userId!,
+          token: _token!,
+          tokenExpires: _tokenExpires!,
+        ));
       });
     }).catchError((error) {
       _logInStatus = UserLogInStatus.loggedOut;

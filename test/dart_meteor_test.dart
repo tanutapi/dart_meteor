@@ -229,14 +229,18 @@ void main() {
     });
 
     test('meteor.logoutOtherClients', () async {
-      var result = await meteor.loginWithPassword('user1', 'password1');
-      print('MeteorClientLoginResult: ' + result.toString());
+      var result1 = await meteor.loginWithPassword('user1', 'password1');
+      print('MeteorClientLoginResult: ' + result1.toString());
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
       expect(meteor.userCurrentValue(), isNotNull);
-      await meteor.logoutOtherClients();
+      var result2 = await meteor.logoutOtherClients();
+      expect(result2, isNotNull);
       expect(meteor.userIdCurrentValue(), isNotNull);
       expect(meteor.userCurrentValue(), isNotNull);
+      expect(result2.userId, result1.userId);
+      expect(result2.token, isNot(result1.token));
+      expect(result2.tokenExpires, isNot(result1.tokenExpires));
     });
   });
 

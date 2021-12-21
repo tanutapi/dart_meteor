@@ -1,3 +1,5 @@
+# 2.1.2
+- Return MeteorClientLoginResult on logoutOtherClients.
 # 2.1.1
 - Return null if no current value presents for the 'currentValue'.
 # 2.1.0
