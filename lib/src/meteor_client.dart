@@ -83,8 +83,6 @@ class MeteorClient {
   DateTime? _tokenExpires;
   UserLogInStatus _logInStatus = UserLogInStatus.loggedOut;
 
-  final Map<String, SubscriptionHandler> _subscriptions = {};
-
   /// Meteor.collections
   final Map<String, Map<String, dynamic>> _collections = {};
   final Map<String, BehaviorSubject<Map<String, dynamic>>> _collectionsSubject =
@@ -287,7 +285,6 @@ class MeteorClient {
       Function? onReady}) {
     var handler =
         connection.subscribe(name, args, onStop: onStop, onReady: onReady);
-    _subscriptions[handler.subId] = handler;
     return handler;
   }
 
