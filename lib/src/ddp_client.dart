@@ -305,6 +305,11 @@ class DdpClient {
       var msg = json.encode(data);
       printDebug('Send: $msg');
       _socket!.add(msg);
+
+      // Resend all subscriptions
+      _subscriptionHandlers.forEach((id, handler) {
+        _sendMsgSub(id, handler.subName, handler.args);
+      });
     }
   }
 
