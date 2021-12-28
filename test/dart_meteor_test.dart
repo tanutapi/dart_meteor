@@ -248,7 +248,8 @@ void main() {
       // expiration than the curren token. Otherwise, a bad guy with a
       // stolen token could use this method to stop his stolen token from
       // ever expiring.
-      expect(result2.tokenExpires.millisecondsSinceEpoch, lessThanOrEqualTo(result1.tokenExpires.millisecondsSinceEpoch));
+      expect(result2.tokenExpires.millisecondsSinceEpoch,
+          lessThanOrEqualTo(result1.tokenExpires.millisecondsSinceEpoch));
     });
   });
 
@@ -291,13 +292,13 @@ void main() {
   });
 
   group('subscription', () {
-    var meteor = MeteorClient.connect(
-      url: url,
-      debug: true,
-    );
+    late MeteorClient meteor;
 
     setUp(() async {
-      meteor.reconnect();
+      meteor = MeteorClient.connect(
+        url: url,
+        debug: true,
+      );
       await Future.delayed(Duration(seconds: 2));
     });
 
@@ -347,17 +348,13 @@ void main() {
       }
     });
 
-    test('clearAllMessages', () async {
-      await meteor.loginWithPassword('user1', 'password1');
-      await meteor.call('clearAllMessages');
-    });
-
     test(
         'collection(messages) stream should have values and "createdAt" should be instance of DateTime',
         () async {
       var completer = Completer();
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
+      await meteor.call('clearAllMessages');
       meteor.subscribe(
         'messages',
       );
@@ -383,16 +380,44 @@ void main() {
         completer.complete(false);
       }
     });
+
+    test('meteor should resume subscription after reconnected', () async {
+      var completer = Completer();
+      expect(completer.future, completion(true));
+      await meteor.loginWithPassword('user1', 'password1');
+      await meteor.call('clearAllMessages');
+      meteor.subscribe(
+        'messages',
+      );
+      meteor.collection('messages').listen((value) {
+        var msgCnt = value.values.toList().length;
+        print('resume subscription, message count: $msgCnt');
+        if (msgCnt == 2) {
+          completer.complete(true);
+        }
+      });
+      await meteor.call('sendMessage', args: ['message 1']);
+      await Future.delayed(Duration(seconds: 2));
+      meteor.disconnect();
+      await Future.delayed(Duration(seconds: 2));
+      meteor.reconnect();
+      await Future.delayed(Duration(seconds: 2));
+      await meteor.call('sendMessage', args: ['message 2']);
+      await Future.delayed(Duration(seconds: 2));
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+    });
   });
 
   group('Reactive with rxdart', () {
-    var meteor = MeteorClient.connect(
-      url: url,
-      debug: true,
-    );
+    late MeteorClient meteor;
 
     setUp(() async {
-      meteor.reconnect();
+      meteor = MeteorClient.connect(
+        url: url,
+        debug: true,
+      );
       await Future.delayed(Duration(seconds: 2));
     });
 
