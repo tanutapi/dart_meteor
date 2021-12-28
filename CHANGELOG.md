@@ -1,3 +1,5 @@
+# 2.1.3
+- Resend subscription packets on reconnection.
 # 2.1.2
 - Return MeteorClientLoginResult on logoutOtherClients.
 # 2.1.1
