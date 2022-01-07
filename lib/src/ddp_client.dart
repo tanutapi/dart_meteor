@@ -1,8 +1,11 @@
+import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math';
+
+const bool isWeb = identical(0, 0.0);
 
 enum DdpConnectionStatusValues {
   connected,
@@ -233,9 +236,11 @@ class DdpClient {
       _connectionStatus.reason = null;
       _statusStreamController.sink.add(_connectionStatus);
       try {
-        _socket = IOWebSocketChannel.connect(Uri.parse(url), headers: {
-          'User-Agent': userAgent,
-        });
+        _socket = isWeb
+            ? HtmlWebSocketChannel.connect(url)
+            : IOWebSocketChannel.connect(url, headers: {
+                'User-Agent': userAgent,
+              });
         _connectionStatus.retryCount = 0;
         _connectionStatus.retryTime = Duration(seconds: 1);
         _socket!.stream.listen(
