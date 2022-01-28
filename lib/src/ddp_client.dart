@@ -92,8 +92,8 @@ class DdpClient {
   WebSocket? _socket;
   int maxRetryCount;
   final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
-  String? _serverId;
-  String? _sessionId;
+  String? serverId;
+  String? sessionId;
   int _currentMethodId = 0;
   bool _flagToBeResetAtPongMsg = false;
   Timer? _pingPeriodicTimer;
@@ -214,8 +214,8 @@ class DdpClient {
     // Reset ping-pong flag
     _flagToBeResetAtPongMsg = false;
 
-    _serverId = null;
-    _sessionId = null;
+    serverId = null;
+    sessionId = null;
     _connectionStatus.connected = false;
     _connectionStatus.status = DdpConnectionStatusValues.offline;
     _connectionStatus.retryCount = 0;
@@ -299,8 +299,8 @@ class DdpClient {
         'version': '1',
         'support': ['1', 'pre1', 'pre2'],
       };
-      if (_sessionId != null) {
-        data['session'] = _sessionId!;
+      if (sessionId != null) {
+        data['session'] = sessionId!;
       }
       var msg = json.encode(data);
       printDebug('Send: $msg');
@@ -393,9 +393,9 @@ class DdpClient {
     var msg = dataMap['msg'];
     if (_connectionStatus.status == DdpConnectionStatusValues.connecting) {
       if (dataMap['server_id'] != null) {
-        _serverId = dataMap['server_id'];
+        serverId = dataMap['server_id'];
         if (debug) {
-          print('DDP[${_socket.hashCode}] - Server ID: $_serverId');
+          print('DDP[${_socket.hashCode}] - Server ID: $serverId');
         }
       } else if (msg == 'connected') {
         _onReconnectCallbacks.values.forEach((reconnectCallback) {
@@ -406,7 +406,7 @@ class DdpClient {
         _connectionStatus.status = DdpConnectionStatusValues.connected;
         _connectionStatus.reason = null;
         _statusStreamController.sink.add(_connectionStatus);
-        _sessionId = dataMap['session'];
+        sessionId = dataMap['session'];
 
         // Cancel ping-pong timer
         if (_pingPeriodicTimer != null) {
@@ -419,8 +419,8 @@ class DdpClient {
           _sendMsgPing();
         });
       } else if (msg == 'failed') {
-        _serverId = null;
-        _sessionId = null;
+        serverId = null;
+        sessionId = null;
         _connectionStatus.connected = false;
         _connectionStatus.status = DdpConnectionStatusValues.failed;
         _connectionStatus.reason =
