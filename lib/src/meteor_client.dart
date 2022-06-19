@@ -202,6 +202,7 @@ class MeteorClient {
       _collections[collectionName] = {};
       var subject = _collectionsSubject[collectionName] =
           BehaviorSubject<Map<String, dynamic>>();
+      subject.add({});
       _collectionsStreams[collectionName] = subject.stream;
     }
   }
