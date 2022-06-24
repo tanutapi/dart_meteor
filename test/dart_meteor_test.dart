@@ -362,13 +362,15 @@ void main() {
         print('collection messages listen:');
         print(value);
 
-        if (!(value[value.keys.first]['createdAt'] is DateTime)) {
-          if (!completer.isCompleted) {
-            completer.complete(false);
-          }
-        } else {
-          if (!completer.isCompleted) {
-            completer.complete(true);
+        if (value.isNotEmpty) {
+          if (!(value[value.keys.first]['createdAt'] is DateTime)) {
+            if (!completer.isCompleted) {
+              completer.complete(false);
+            }
+          } else {
+            if (!completer.isCompleted) {
+              completer.complete(true);
+            }
           }
         }
       });
