@@ -6,6 +6,9 @@ For Flutter Web (web branch) ![](https://github.com/tanutapi/dart_meteor/workflo
 
 This library makes a connection between the Meteor backend and the Flutter app simply. Design to work seamlessly with StreamBuilder and FutureBuilder.
 
+## Change on 3.0.0 ##
+BREAKING CHANGE. The `meteor.collection('collectionName')` streams are now `snapshot.hasData == true` and have an empty map at the beginning.
+
 ## Change on 2.0.0 ##
 
 Passing arguments to meteor method is now optional. In version 1.x.x you did: `meteor.call('your_method_name', [param1, param2])`. Now in version 2.x.x, it will be `meteor.call('your_method_name', args: [param1, param2])` or just `meteor.call('your_method_name')` if you don't want to pass any argument to your method.
