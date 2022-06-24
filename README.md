@@ -203,8 +203,8 @@ class _YourWidgetState extends State<YourWidget> {
 
   @override
   void dispose() {
-    super.dispose();
     _subscriptionHandler.stop();
+    super.dispose();
   }
 
   @override
@@ -242,6 +242,26 @@ We did not provide some kind of minimongo. We believe that you can use `reduce`,
 
 ## Don't want to access data via stream
 Getting the current data from stream is sometime complicated. Especially when you just want to get the latest value just for a condition checking. You can access the latest value from the `collection`, `user`, `userId` directly with `meteor.collectionCurrentValue('your_collection_name')`, `meteor.userCurrentValue()`, and `meteor.userIdCurrentValue()`.
+
+## findOne with _id
+The best way to access the document if you have an id is
+```
+// Non-reactive
+// Example of accessing an document by it's id
+final id = 'DGbsysgxzSf7Cr8Jg';
+final doc = meteor.collectionCurrentValue('your_collection_name')[id];
+if (doc != null) {
+  // do something
+}
+
+// Non-reactive
+// Example of accessing an user by userId
+final userId = 'Sf7Cr8JgDGbsysgxz';
+final user = meteor.collectionCurrentValue('users')[userId];
+if (user != null) {
+  // do something
+}
+```
 
 ## Features and bugs
 

@@ -1,6 +1,7 @@
+# 3.0.0
+- BREAKING CHANGE. The `meteor.collection('collectionName')` streams are now `hasData == true` and have an empty map at the beginning.
 # 2.1.4
 - Acessing to serverId and sessionId
-
 # 2.1.3
 - Resend subscription packets on reconnection.
 # 2.1.2
