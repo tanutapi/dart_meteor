@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io' if (dart.library.html) 'dart:html';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:io';
 import 'dart:async';
 import 'dart:math';
 
