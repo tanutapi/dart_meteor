@@ -232,7 +232,7 @@ class DdpClient {
       _connectionStatus.reason = null;
       _statusStreamController.sink.add(_connectionStatus);
       try {
-        _socket = WebSocketChannel.connect(Uri.parse(url));//, headers: { 'User-Agent': userAgent });
+        _socket = WebSocketChannel.connect(Uri.parse(url));
         _connectionStatus.retryCount = 0;
         _connectionStatus.retryTime = Duration(seconds: 1);
         _socket!.stream.listen(
