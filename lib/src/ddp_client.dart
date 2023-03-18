@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -89,7 +89,7 @@ class DdpClient {
   late DdpConnectionStatus _connectionStatus;
   String url;
   String userAgent;
-  WebSocket? _socket;
+  WebSocketChannel? _socket;
   int maxRetryCount;
   final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
   String? serverId;
@@ -198,7 +198,7 @@ class DdpClient {
     printDebug('Begin of disconnect()');
     _isTryToReconnect = false;
     if (_socket != null) {
-      _socket!.close().then((value) {
+      _socket!.sink.close().then((value) {
         _socket = null;
       }).catchError((err) {
         printDebug(err);
@@ -232,13 +232,10 @@ class DdpClient {
       _connectionStatus.reason = null;
       _statusStreamController.sink.add(_connectionStatus);
       try {
-        WebSocket.userAgent = userAgent;
-        _socket = await WebSocket.connect(url).timeout(
-          Duration(seconds: 5),
-        );
+        _socket = WebSocketChannel.connect(Uri.parse(url));
         _connectionStatus.retryCount = 0;
         _connectionStatus.retryTime = Duration(seconds: 1);
-        _socket!.listen(
+        _socket!.stream.listen(
           _onData,
           onDone: _onDone,
           onError: _onError,
@@ -304,7 +301,7 @@ class DdpClient {
       }
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket!.add(msg);
+      _socket!.sink.add(msg);
 
       // Resend all subscriptions
       _subscriptionHandlers.forEach((id, handler) {
@@ -317,7 +314,7 @@ class DdpClient {
     if (_socket != null) {
       var msg = json.encode({'msg': 'ping'});
       printDebug('Send: $msg');
-      _socket!.add(msg);
+      _socket!.sink.add(msg);
       var sentTime = DateTime.now();
       _flagToBeResetAtPongMsg = true;
       Future.delayed(Duration(seconds: PONG_WITHIN_SEC), () {
@@ -339,7 +336,7 @@ class DdpClient {
     if (_socket != null) {
       var msg = json.encode({'msg': 'pong'});
       printDebug('Send: $msg');
-      _socket!.add(msg);
+      _socket!.sink.add(msg);
     }
   }
 
@@ -353,7 +350,7 @@ class DdpClient {
       };
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket!.add(msg);
+      _socket!.sink.add(msg);
     }
   }
 
@@ -365,7 +362,7 @@ class DdpClient {
       };
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket!.add(msg);
+      _socket!.sink.add(msg);
     }
   }
 
@@ -383,7 +380,7 @@ class DdpClient {
       }
       var msg = json.encode(data);
       printDebug('Send: $msg');
-      _socket!.add(msg);
+      _socket!.sink.add(msg);
     }
   }
 

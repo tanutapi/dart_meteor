@@ -9,6 +9,7 @@ environment:
 dependencies:
   crypto: ^3.0.1
   rxdart: ^0.27.0
+  web_socket_channel: ^2.3.0
 
 dev_dependencies:
   pedantic: ^1.11.0
