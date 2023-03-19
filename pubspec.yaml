@@ -1,14 +1,14 @@
 name: dart_meteor
 description: This library make connection between meteor backend and flutter app easily. Design to work seamlessly with StreamBuilder and FutureBuilder.
-version: 3.0.0
+version: 4.0.0-beta.1
 homepage: https://github.com/tanutapi/dart_meteor
 
 environment:
   sdk: '>=2.12.0 <3.0.0'
 
 dependencies:
-  crypto: ^3.0.1
-  rxdart: ^0.27.0
+  crypto: ^3.0.2
+  rxdart: ^0.27.7
   web_socket_channel: ^2.3.0
 
 dev_dependencies:

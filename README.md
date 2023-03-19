@@ -4,7 +4,7 @@ For Dart VM, Flutter iOS/Android (master branch) ![](https://github.com/tanutapi
 
 This library connects the Meteor backend and the Flutter app—designed to work seamlessly with StreamBuilder and FutureBuilder.
 
-## Change on 4.0.0.beta1
+## Change on 4.0.0-beta.1
 Using the `web_socket_channel` to make this package supports Dart VM, iOS, Android, and Web. Thank you to mel-mouk.
 
 ## Change on 3.0.0 ##
