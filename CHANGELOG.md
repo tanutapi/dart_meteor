@@ -1,3 +1,6 @@
+# 4.0.0-beta.1, 4.0.0-beta.2
+- Adding Web platform support by using the `web_socket_channel`.
+
 # 3.0.0
 - BREAKING CHANGE. The `meteor.collection('collectionName')` streams are now `hasData == true` and have an empty map at the beginning.
 # 2.1.4
