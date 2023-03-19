@@ -1,4 +1,4 @@
-# 4.0.0-beta.1
+# 4.0.0-beta.1, 4.0.0-beta.2
 - Adding Web platform support by using the `web_socket_channel`.
 
 # 3.0.0
