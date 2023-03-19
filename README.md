@@ -1,23 +1,24 @@
 For Dart VM, Flutter iOS/Android (master branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
 
-For Flutter Web (web branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=web)
-
 # A Meteor DDP library for Dart/Flutter developers.
 
-This library makes a connection between the Meteor backend and the Flutter app simply. Design to work seamlessly with StreamBuilder and FutureBuilder.
+This library connects the Meteor backend and the Flutter app—designed to work seamlessly with StreamBuilder and FutureBuilder.
+
+## Change on 4.0.0.beta1
+Using the `web_socket_channel` to make this package supports Dart VM, iOS, Android, and Web. Thank you to mel-mouk.
 
 ## Change on 3.0.0 ##
 BREAKING CHANGE. The `meteor.collection('collectionName')` streams are now `snapshot.hasData == true` and have an empty map at the beginning.
 
 ## Change on 2.0.0 ##
 
-Passing arguments to meteor method is now optional. In version 1.x.x you did: `meteor.call('your_method_name', [param1, param2])`. Now in version 2.x.x, it will be `meteor.call('your_method_name', args: [param1, param2])` or just `meteor.call('your_method_name')` if you don't want to pass any argument to your method.
+Passing arguments to the meteor method is now optional. In version 1.x.x you did: `meteor.call('your_method_name', [param1, param2])`. Now in version 2.x.x and greater, it will be `meteor.call('your_method_name', args: [param1, param2])` or just `meteor.call('your_method_name')` if you don't want to pass any argument to your method.
 
-Same as subscription. In version 1.x.x you did: `meteor.subscribe('your_pub', [param1, param2])`. Now in version 2.x.x, it will be `meteor.subscribe('your_pub', args: [param1, param2])` or just `meteor.subscribe('your_pub')` if you don't want to pass any argument to make your subscription.
+Same as a subscription. In version 1.x.x you did: `meteor.subscribe('your_pub', [param1, param2])`. Now in version 2.x.x and greater, it will be `meteor.subscribe('your_pub', args: [param1, param2])` or just `meteor.subscribe('your_pub')` if you don't want to pass any argument to your publish function.
 
 In version 1.x.x, you have to call `meteor.prepareCollection('your_collection_name')` before you can use it. Now in version 2.x.x, you don't have to prepare a collection. You now access the collection by calling `collection` method `meteor.collection('messages').listen((value) { ... })`.
 
-`DateTime` are now directly support. You can pass a `DateTime` variable as a meteor method parameter and receive DateTime from the collections and methods.
+`DateTime` is now directly supported. You can pass a `DateTime` variable as a meteor method parameter and receive DateTime from the collections and methods.
 
 ## Usage
 
@@ -25,7 +26,7 @@ I have published a post on Medium showing how to handle connection status, user 
 
 A simple usage example:
 
-First, create an instance of MeteorClient in your app global scope so that it can be used anywhere in your project.
+First, create an instance of MeteorClient in your app's global scope to use it anywhere in your project.
 
 ```dart
 import 'package:flutter/material.dart';
@@ -35,7 +36,7 @@ MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
 void main() => runApp(MyApp());
 ```
 
-In your StatefulWidget/StatelessWidget, thanks to [rxdart][rxdart], you can use FutuerBuilder or StreamBuilder to build your widget base on a response from meteor's DDP server.
+In your StatefulWidget/StatelessWidget, thanks to [rxdart][rxdart], you can use FutuerBuilder or StreamBuilder to build your widget based on a response from meteor's DDP server.
 
 ```dart
 class MyApp extends StatefulWidget {
@@ -147,7 +148,7 @@ class _MyAppState extends State<MyApp> {
 
 ## Making a method call to your server
 
-Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something went wrong. 
+Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something goes wrong. 
 
 ```dart
 meteor.call('helloMethod').then((result) {
@@ -175,17 +176,19 @@ FutureBuilder<int>(
 ),
 ```
 
-You can found an example project inside [/example][example].
+You can find an example project inside [/example][example].
 
 ## Collections & Subscriptions
 You can access your collections by calling `collection('your_collection_name')`.
-It will return a `Stream` which you can use it with your `StreamBuilder` or wherever you want. Through the returned `Stream` reference you can listen the updates of the collection.
+It will return a `Stream`, which you can use with your `StreamBuilder`. Through the returned `Stream` reference, you can listen to the updates of the collection.
 
 ```dart
 meteor.collection('your_collections');
 ```
 
-Which return a stream that backed by rxdart BehaviorSubject, a special StreamController that captures the latest item that has been added to the controller, and emits that as the first item to any new listener. You can use it as a simple Stream. To make collections available in Flutter app you might make a subscription to your server with:
+The above code will return a stream backed by the rxdart `BehaviorSubject`, a special StreamController that captures the latest item added to the Stream and emits it as the first item to any new listener. You can use it as a regular Stream. 
+
+To make collections available in the Flutter app, you might make a subscription to your server with the following:
 
 ```dart
 class YourWidget extends StatefulWidget {
@@ -227,7 +230,7 @@ class _YourWidgetState extends State<YourWidget> {
 }
 ```
 
-The collection was return as a Map<String, dynamic>. The key is a document .\_id and its value is the whole document.
+The collection was returned as a Map<String, dynamic>. The key is a document .\_id, and its value is the whole document.
 
 Ex.
 ```
@@ -241,16 +244,16 @@ Ex.
   }
 }
 ```
-We did not provide some kind of minimongo. We believe that you can use `reduce`, `map`, and `where` with the collection and get the same result as you did with a query in `minimongo` `meteor` web client.
+We don't provide something like minimongo as the official Meteor did. You can use `reduce`, `map`, and `where` with the collection and get the same result as you did with a query in the `minimongo` `Meteor` web client.
 
-## Don't want to access data via stream
-Getting the current data from stream is sometime complicated. Especially when you just want to get the latest value just for a condition checking. You can access the latest value from the `collection`, `user`, `userId` directly with `meteor.collectionCurrentValue('your_collection_name')`, `meteor.userCurrentValue()`, and `meteor.userIdCurrentValue()`.
+## Don't want to access data via Stream
+Getting the current data from a stream is sometimes complicated. Especially when you want to get the latest value just for condition checking, you can access the latest value from the `collection`, `user`, `userId` directly with `meteor.collectionCurrentValue('your_collection_name')`, `meteor.userCurrentValue()`, and `meteor.userIdCurrentValue()`.
 
 ## findOne with _id
 The best way to access the document if you have an id is
 ```
 // Non-reactive
-// Example of accessing an document by it's id
+// An example of accessing a document by its id
 final id = 'DGbsysgxzSf7Cr8Jg';
 final doc = meteor.collectionCurrentValue('your_collection_name')[id];
 if (doc != null) {
@@ -258,7 +261,7 @@ if (doc != null) {
 }
 
 // Non-reactive
-// Example of accessing an user by userId
+// An example of accessing a user by userId
 final userId = 'Sf7Cr8JgDGbsysgxz';
 final user = meteor.collectionCurrentValue('users')[userId];
 if (user != null) {
