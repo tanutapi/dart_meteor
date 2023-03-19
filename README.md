@@ -1,4 +1,4 @@
-For Dart VM, Flutter iOS/Android (master branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
+For Dart VM, Flutter iOS/Android/Web (master branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
 
 # A Meteor DDP library for Dart/Flutter developers.
 
