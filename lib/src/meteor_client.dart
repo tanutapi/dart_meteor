@@ -80,6 +80,7 @@ class MeteorClient {
 
   String? _userId;
   String? _token;
+  bool? _hasInternet;
   DateTime? _tokenExpires;
   UserLogInStatus _logInStatus = UserLogInStatus.loggedOut;
 
@@ -176,6 +177,8 @@ class MeteorClient {
     _statusStream.listen((ddpStatus) {
       if (ddpStatus.status == DdpConnectionStatusValues.connected &&
           !isAlreadyRunStartupFunctions) {
+        _hasInternet = ddpStatus.status == DdpConnectionStatusValues.connected;
+
         isAlreadyRunStartupFunctions = true;
         _startupFunctions.forEach((func) {
           try {
