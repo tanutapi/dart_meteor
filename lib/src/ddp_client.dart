@@ -153,7 +153,7 @@ class DdpClient {
     Function Function(dynamic error)? onStop,
     Function? onReady,
   }) {
-    var id = name + '-' + _generateUID(16);
+    var id = '$name-${_generateUID(16)}';
     _subscriptions[id] = SubscriptionCallback(onStop: onStop, onReady: onReady);
     params = DdpClient.escapeSpecialFieldValues(params);
     var handler = SubscriptionHandler(this, id, name, params);
@@ -253,7 +253,6 @@ class DdpClient {
         );
         _scheduleReconnect();
       }
-      ;
     }
   }
 
@@ -395,9 +394,9 @@ class DdpClient {
           print('DDP[${_socket.hashCode}] - Server ID: $serverId');
         }
       } else if (msg == 'connected') {
-        _onReconnectCallbacks.values.forEach((reconnectCallback) {
+        for (var reconnectCallback in _onReconnectCallbacks.values) {
           reconnectCallback.callback(reconnectCallback);
-        });
+        }
 
         _connectionStatus.connected = true;
         _connectionStatus.status = DdpConnectionStatusValues.connected;
@@ -455,9 +454,9 @@ class DdpClient {
         dataStreamController.sink.add(dataMap);
       } else if (msg == 'ready') {
         // subs: array of strings (ids passed to 'sub' which have sent their initial batch of data)
-        List subs = dataMap['subs'];
+        List? subs = dataMap['subs'];
         if (subs != null) {
-          subs.forEach((id) {
+          for (var id in subs) {
             var sub = _subscriptions[id];
             if (sub != null && sub.onReady != null) {
               sub.onReady!();
@@ -466,7 +465,7 @@ class DdpClient {
             if (handler != null) {
               handler._readyStreamController.sink.add(true);
             }
-          });
+          }
         }
       } else if (msg == 'addedBefore') {
       } else if (msg == 'movedBefore') {

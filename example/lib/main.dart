@@ -5,11 +5,13 @@ MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
 void main() => runApp(MyApp());
 
 class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
   @override
-  _MyAppState createState() => _MyAppState();
+  MyAppState createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> {
   String _methodResult = '';
 
   void _callMethod() {
@@ -20,7 +22,7 @@ class _MyAppState extends State<MyApp> {
     }).catchError((err) {
       if (err is MeteorError) {
         setState(() {
-          _methodResult = err.message;
+          _methodResult = err.message ?? 'Unknown error';
         });
       }
     });
@@ -40,21 +42,21 @@ class _MyAppState extends State<MyApp> {
               StreamBuilder<DdpConnectionStatus>(
                 stream: meteor.status(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    if (snapshot.data.status ==
+                  if (snapshot.hasData && snapshot.data != null) {
+                    if (snapshot.data!.status ==
                         DdpConnectionStatusValues.connected) {
-                      return RaisedButton(
-                        child: Text('Disconnect'),
+                      return ElevatedButton(
                         onPressed: () {
                           meteor.disconnect();
                         },
+                        child: Text('Disconnect'),
                       );
                     }
-                    return RaisedButton(
-                      child: Text('Connect'),
+                    return ElevatedButton(
                       onPressed: () {
                         meteor.reconnect();
                       },
+                      child: Text('Connect'),
                     );
                   }
                   return Container();
@@ -63,8 +65,8 @@ class _MyAppState extends State<MyApp> {
               StreamBuilder<DdpConnectionStatus>(
                 stream: meteor.status(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return Text('Meteor Status ${snapshot.data.toString()}');
+                  if (snapshot.hasData && snapshot.data != null) {
+                    return Text('Meteor Status ${snapshot.data!.toString()}');
                   }
                   return Text('Meteor Status: ---');
                 },
@@ -72,34 +74,36 @@ class _MyAppState extends State<MyApp> {
               StreamBuilder(
                   stream: meteor.userId(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return RaisedButton(
-                        child: Text('Logout'),
+                    if (snapshot.hasData && snapshot.data != null) {
+                      return ElevatedButton(
                         onPressed: () {
                           meteor.logout();
                         },
+                        child: Text('Logout'),
                       );
                     }
-                    return RaisedButton(
-                      child: Text('Login'),
+                    return ElevatedButton(
                       onPressed: () {
-                        meteor.loginWithPassword(
-                            'yourusername', 'yourpassword');
+                        debugPrint('Logging in...');
+                        meteor.loginWithPassword('yourusername', 'yourpassword').then((res) {
+                          debugPrint(res.token);
+                        });
                       },
+                      child: Text('Login'),
                     );
                   }),
               StreamBuilder(
                 stream: meteor.user(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasData) {
+                  if (snapshot.hasData && snapshot.data != null) {
                     return Text(snapshot.data.toString());
                   }
                   return Text('User: ----');
                 },
               ),
-              RaisedButton(
-                child: Text('Method Call'),
+              ElevatedButton(
                 onPressed: _callMethod,
+                child: Text('Method Call'),
               ),
               Text(_methodResult),
             ],
