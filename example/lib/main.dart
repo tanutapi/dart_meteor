@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dart_meteor/dart_meteor.dart';
 
-MeteorClient meteor = MeteorClient.connect(url: 'ws://192.168.1.37:3000');
+MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
 void main() => runApp(MyApp());
 
 class MyApp extends StatefulWidget {
@@ -85,7 +85,7 @@ class MyAppState extends State<MyApp> {
                     return ElevatedButton(
                       onPressed: () {
                         debugPrint('Logging in...');
-                        meteor.loginWithPassword('user1', 'password1').then((res) {
+                        meteor.loginWithPassword('yourusername', 'yourpassword').then((res) {
                           debugPrint(res.token);
                         });
                       },
