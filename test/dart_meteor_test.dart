@@ -212,14 +212,14 @@ void main() {
 
     test('meteor.loginWithPassword', () async {
       var result = await meteor.loginWithPassword('user1', 'password1');
-      print('MeteorClientLoginResult: ' + result.toString());
+      print('MeteorClientLoginResult: $result');
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
     });
 
     test('meteor.logout', () async {
       var result = await meteor.loginWithPassword('user1', 'password1');
-      print('MeteorClientLoginResult: ' + result.toString());
+      print('MeteorClientLoginResult: $result');
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
       expect(meteor.userCurrentValue(), isNotNull);
@@ -230,7 +230,7 @@ void main() {
 
     test('meteor.logoutOtherClients', () async {
       var result1 = await meteor.loginWithPassword('user1', 'password1');
-      print('MeteorClientLoginResult: ' + result1.toString());
+      print('MeteorClientLoginResult: $result1');
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
       expect(meteor.userCurrentValue(), isNotNull);
@@ -363,7 +363,7 @@ void main() {
         print(value);
 
         if (value.isNotEmpty) {
-          if (!(value[value.keys.first]['createdAt'] is DateTime)) {
+          if (value[value.keys.first]['createdAt'] is! DateTime) {
             if (!completer.isCompleted) {
               completer.complete(false);
             }

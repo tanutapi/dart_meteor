@@ -95,7 +95,7 @@ class MeteorClient {
       userAgent = 'DartMeteor/2.0.4'}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
     if (!url.endsWith('websocket')) {
-      url = url.replaceFirst(RegExp(r'/$'), '') + '/websocket';
+      url = '${url.replaceFirst(RegExp(r'/$'), '')}/websocket';
     }
     print('MeteorClient[$hashCode] - Make a connection to $url');
     connection = DdpClient(url: url, debug: debug, userAgent: userAgent);
@@ -150,9 +150,9 @@ class MeteorClient {
           List<dynamic> clearList = data['cleared'];
           if (_collections[collectionName]![id] != null &&
               _collections[collectionName]![id] is Map) {
-            clearList.forEach((k) {
+            for (var k in clearList) {
               _collections[collectionName]![id].remove(k);
-            });
+            }
           }
         }
       }
@@ -179,13 +179,13 @@ class MeteorClient {
       if (ddpStatus.status == DdpConnectionStatusValues.connected &&
           !isAlreadyRunStartupFunctions) {
         isAlreadyRunStartupFunctions = true;
-        _startupFunctions.forEach((func) {
+        for (var func in _startupFunctions) {
           try {
             func();
           } catch (e) {
             rethrow;
           }
-        });
+        }
       }
     });
 
