@@ -7,6 +7,9 @@ This library connects the Meteor backend and the Flutter app—designed to work 
 ## Change on 4.0.0-beta.1
 Using the `web_socket_channel` to make this package supports Dart VM, iOS, Android, and Web. Thank you to mel-mouk.
 
+## Change on 3.1.0 ##
+Bump the SDK version to <4.0.0 and update dependencies.
+
 ## Change on 3.0.0 ##
 BREAKING CHANGE. The `meteor.collection('collectionName')` streams are now `snapshot.hasData == true` and have an empty map at the beginning.
 
