@@ -170,7 +170,9 @@ class MeteorClient {
 
     connection.onReconnect((OnReconnectionCallback reconnectionCallback) {
       print('MeteorClient[$hashCode] - connection.onReconnect()');
-      _loginWithExistingToken().catchError((error) {});
+      _loginWithExistingToken().catchError((error) {
+        return null;
+      });
     });
 
     _statusStream.listen((ddpStatus) {

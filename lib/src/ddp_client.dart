@@ -455,7 +455,7 @@ class DdpClient {
         dataStreamController.sink.add(dataMap);
       } else if (msg == 'ready') {
         // subs: array of strings (ids passed to 'sub' which have sent their initial batch of data)
-        List subs = dataMap['subs'];
+        List? subs = dataMap['subs'];
         if (subs != null) {
           subs.forEach((id) {
             var sub = _subscriptions[id];
