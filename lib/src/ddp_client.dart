@@ -465,7 +465,7 @@ class DdpClient {
             if (handler != null) {
               handler._readyStreamController.sink.add(true);
             }
-          });
+          }
         }
       } else if (msg == 'addedBefore') {
       } else if (msg == 'movedBefore') {
