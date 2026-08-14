@@ -1,3 +1,11 @@
+# 4.0.0
+- Support for the latest Dart/Flutter releases (tested with Dart 3.13). The minimum SDK is now Dart 3.6.
+- Verified compatibility with Meteor 3.x servers, including Meteor 3.5.1 (DDP protocol version 1, SHA-256 password login, EJSON `$date` handling).
+- Web platform support from the 4.0.0 betas via `web_socket_channel` is included.
+- Added a standalone DDP protocol test suite (`test/ddp_mock_server_test.dart`) that runs without a Meteor server or docker.
+- Updated dependencies and lint rules (`lints` 6).
+- BREAKING: `DdpClient.PING_SEC_INTERVAL` and `DdpClient.PONG_WITHIN_SEC` were renamed to the static constants `DdpClient.pingIntervalSeconds` and `DdpClient.pongTimeoutSeconds`.
+
 # 4.0.0-beta.1, 4.0.0-beta.2
 - Adding Web platform support by using the `web_socket_channel`.
 

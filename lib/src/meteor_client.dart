@@ -92,7 +92,7 @@ class MeteorClient {
   MeteorClient.connect(
       {required String url,
       bool debug = false,
-      userAgent = 'DartMeteor/2.0.4'}) {
+      userAgent = 'DartMeteor/4.0.0'}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
     if (!url.endsWith('websocket')) {
       url = '${url.replaceFirst(RegExp(r'/$'), '')}/websocket';

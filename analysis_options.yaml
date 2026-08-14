@@ -10,5 +10,7 @@ include: package:lints/recommended.yaml
 #     - camel_case_types
 
 analyzer:
-#   exclude:
-#     - path/to/excluded/files/**
+  exclude:
+    # The example is a Flutter app with its own analysis_options.yaml and
+    # requires the Flutter SDK; exclude it from the pure-Dart package analysis.
+    - example/**

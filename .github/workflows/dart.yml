@@ -7,30 +7,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+      - name: Install Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Install dependencies
+        run: dart pub get --no-example
+      - name: Analyze
+        run: dart analyze
+      - name: Run DDP protocol tests (no server required)
+        run: dart test test/ddp_mock_server_test.dart
       - name: Prepare docker network
         run: docker network create test_net
       - name: Start MongoDB
         run: docker run --rm --name mongodb --network test_net -d mongo
-      - run: docker ps
       - run: sleep 5
-      - run: docker ps
       - name: Start webapp
-        run: docker run --rm --name webapp --network test_net -p 3000:3000  -e "MONGO_URL=mongodb://mongodb:27017/meteor" -e "ROOT_URL=http://webapp" -d tanutapi/simple-meteor-chat:latest
+        run: docker run --rm --name webapp --network test_net -p 3000:3000 -e "MONGO_URL=mongodb://mongodb:27017/meteor" -e "ROOT_URL=http://webapp" -d tanutapi/simple-meteor-chat:latest
       - run: sleep 30
       - run: docker ps
       - run: docker logs webapp
-      - run: sudo apt-get update
-      - run: sudo apt-get install apt-transport-https curl -y
       - name: Check webapp
         run: curl 127.0.0.1:3000
-      - run: sudo sh -c 'wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -'
-      - run: sudo sh -c 'wget -qO- https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list'
-      - run: sudo apt-get update
-      - name: Install dart
-        run: sudo apt-get install dart -y
-      - run: export PATH="$PATH:/usr/lib/dart/bin"
-      - uses: actions/checkout@v1
-      - name: Install dependencies
-        run: rm -rf ./example && PATH="$PATH:/usr/lib/dart/bin" dart pub get
-      - name: Run tests
-        run: PATH="$PATH:/usr/lib/dart/bin" dart run test
+      - name: Run integration tests
+        run: dart test test/dart_meteor_test.dart

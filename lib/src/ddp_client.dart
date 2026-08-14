@@ -79,8 +79,8 @@ class OnReconnectionCallback {
 }
 
 class DdpClient {
-  final int PING_SEC_INTERVAL = 20;
-  final int PONG_WITHIN_SEC = 5;
+  static const int pingIntervalSeconds = 20;
+  static const int pongTimeoutSeconds = 5;
   final Random _random = Random.secure();
 
   final StreamController<DdpConnectionStatus> _statusStreamController =
@@ -316,7 +316,7 @@ class DdpClient {
       _socket!.sink.add(msg);
       var sentTime = DateTime.now();
       _flagToBeResetAtPongMsg = true;
-      Future.delayed(Duration(seconds: PONG_WITHIN_SEC), () {
+      Future.delayed(Duration(seconds: pongTimeoutSeconds), () {
         if (_flagToBeResetAtPongMsg == true) {
           printDebug('');
           printDebug('Disconnect due to not receiving PONG');
@@ -411,7 +411,7 @@ class DdpClient {
         }
 
         _pingPeriodicTimer =
-            Timer.periodic(Duration(seconds: PING_SEC_INTERVAL), (timer) {
+            Timer.periodic(Duration(seconds: pingIntervalSeconds), (timer) {
           _sendMsgPing();
         });
       } else if (msg == 'failed') {
@@ -532,7 +532,6 @@ class DdpClient {
         } else if (k == '\$date') {
           if (parent != null && field != null) {
             parent[field] = DateTime.fromMillisecondsSinceEpoch(v);
-            return parent[field];
           }
         }
       });

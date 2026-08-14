@@ -475,10 +475,9 @@ void main() {
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
       var reactive = BehaviorSubject();
-      SubscriptionHandler sub;
       reactive.add('user1');
       reactive.listen((username) {
-        sub = meteor.subscribe('assets', args: [username], onReady: () async {
+        meteor.subscribe('assets', args: [username], onReady: () async {
           await Future.delayed(Duration(seconds: 2));
           var assets = meteor.collectionCurrentValue('assets');
           if (username == 'user2' && assets!.length == 2) {
