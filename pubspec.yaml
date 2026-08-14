@@ -6,6 +6,14 @@ homepage: https://github.com/tanutapi/dart_meteor
 environment:
   sdk: '>=3.6.0 <4.0.0'
 
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
+
 dependencies:
   crypto: ^3.0.6
   rxdart: ^0.28.0
