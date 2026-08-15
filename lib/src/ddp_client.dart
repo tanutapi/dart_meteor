@@ -11,6 +11,18 @@ enum DdpConnectionStatusValues {
   offline
 }
 
+/// Thrown into an in-flight method call when the connection is lost before
+/// the server replied. Callers can catch this to distinguish "the server said
+/// no" (a [MeteorError]) from "we never heard back" - for example after the
+/// device slept mid-call.
+class MeteorConnectionError extends Error {
+  final String reason;
+  MeteorConnectionError(this.reason);
+
+  @override
+  String toString() => 'MeteorConnectionError: $reason';
+}
+
 class DdpConnectionStatus {
   bool connected;
   DdpConnectionStatusValues status;
@@ -25,6 +37,19 @@ class DdpConnectionStatus {
     required this.retryTime,
     required this.reason,
   });
+
+  /// A point-in-time copy. The client keeps one mutable status internally;
+  /// stream subscribers get a snapshot each, so a transition is still readable
+  /// by the time the event is delivered even if the client has moved on.
+  DdpConnectionStatus copy() {
+    return DdpConnectionStatus(
+      connected: connected,
+      status: status,
+      retryCount: retryCount,
+      retryTime: retryTime,
+      reason: reason,
+    );
+  }
 
   @override
   String toString() {
@@ -90,17 +115,38 @@ class DdpClient {
   String url;
   String userAgent;
   WebSocketChannel? _socket;
+  StreamSubscription<dynamic>? _socketSubscription;
   int maxRetryCount;
+
+  /// How often a `ping` is sent while the connection is up.
+  final Duration pingInterval;
+
+  /// How long to wait for the matching `pong` before treating the connection
+  /// as dead.
+  final Duration pongTimeout;
+
+  /// Longest gap between reconnect attempts.
+  final Duration maxRetryInterval;
+
+  /// If no message at all has been received for this long, the socket is
+  /// considered stale on the next liveness check. A suspended process (device
+  /// asleep) resumes with a large gap here even though its timers never fired,
+  /// which is what lets the client notice immediately rather than waiting a
+  /// full ping cycle.
+  final Duration stalenessThreshold;
+
   final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
   String? serverId;
   String? sessionId;
   int _currentMethodId = 0;
-  bool _flagToBeResetAtPongMsg = false;
   Timer? _pingPeriodicTimer;
+  Timer? _pongTimeoutTimer;
+  DateTime? _lastMessageReceivedAt;
   final Map<String, Completer<dynamic>> _methodCompleters = {};
   final Map<String, SubscriptionCallback> _subscriptions = {};
   final Map<String, SubscriptionHandler> _subscriptionHandlers = {};
   bool _isTryToReconnect = true;
+  bool _appIsPaused = false;
   Timer? _scheduleReconnectTimer;
 
   final bool debug;
@@ -110,7 +156,22 @@ class DdpClient {
     this.maxRetryCount = 20,
     this.debug = false,
     required this.userAgent,
-  }) {
+    Duration? pingInterval,
+    Duration? pongTimeout,
+    Duration? maxRetryInterval,
+    Duration? stalenessThreshold,
+  })  : pingInterval =
+            pingInterval ?? const Duration(seconds: pingIntervalSeconds),
+        pongTimeout = pongTimeout ?? const Duration(seconds: pongTimeoutSeconds),
+        maxRetryInterval = maxRetryInterval ?? const Duration(seconds: 30),
+        stalenessThreshold = stalenessThreshold ??
+            Duration(
+              seconds: (pingInterval ??
+                          const Duration(seconds: pingIntervalSeconds))
+                      .inSeconds +
+                  (pongTimeout ?? const Duration(seconds: pongTimeoutSeconds))
+                      .inSeconds,
+            ) {
     _connectionStatus = DdpConnectionStatus(
       connected: false,
       status: DdpConnectionStatusValues.waiting,
@@ -118,8 +179,15 @@ class DdpClient {
       retryTime: Duration(seconds: 0),
       reason: null,
     );
-    _statusStreamController.sink.add(_connectionStatus);
+    _emitStatus();
     _connect();
+  }
+
+  /// Publish a snapshot of the current status. Subscribers must never receive
+  /// the client's own mutable instance, or a fast transition (offline ->
+  /// waiting -> connecting) would be unreadable by the time it is delivered.
+  void _emitStatus() {
+    _statusStreamController.sink.add(_connectionStatus.copy());
   }
 
   void printDebug(String str) {
@@ -132,10 +200,15 @@ class DdpClient {
   /// Register a function to call as the first step of reconnecting.
   /// This function can call methods which will be executed before any other outstanding methods.
   /// For example, this can be used to re-establish the appropriate authentication context on the connection.
+  ///
+  /// The callback may return a [Future]; subscriptions are not re-sent until
+  /// it completes, so a publication that depends on `this.userId` sees the
+  /// resumed login rather than an anonymous connection.
+  ///
   /// callback:
   /// The function to call. It will be called with a single argument, the connection object that is reconnecting.
   void onReconnect(
-      void Function(OnReconnectionCallback reconnection) callback) {
+      FutureOr<void> Function(OnReconnectionCallback reconnection) callback) {
     var id = _generateUID(16);
     var onReconnectCallback =
         OnReconnectionCallback(ddpClient: this, id: id, callback: callback);
@@ -170,9 +243,13 @@ class DdpClient {
     var methodCompleter = Completer<dynamic>();
     var newId = _currentMethodId.toString();
     params = DdpClient.escapeSpecialFieldValues(params);
-    _sendMsgMethod(method, params, newId);
     _currentMethodId++;
     _methodCompleters[newId] = methodCompleter;
+    if (_socket == null) {
+      _failMethodCall(newId, 'Not connected to the server');
+    } else {
+      _sendMsgMethod(method, params, newId);
+    }
     return methodCompleter.future;
   }
 
@@ -180,112 +257,250 @@ class DdpClient {
     return _statusStreamController.stream;
   }
 
+  /// Force an immediate reconnection attempt if the client is not connected.
   void reconnect() {
     printDebug('Reconnect: the connection status is ... $_connectionStatus');
     if (_connectionStatus.status != DdpConnectionStatusValues.connected &&
         _connectionStatus.status != DdpConnectionStatusValues.connecting) {
-      if (_scheduleReconnectTimer != null) {
-        if (_scheduleReconnectTimer!.isActive) {
-          _scheduleReconnectTimer!.cancel();
-          _scheduleReconnectTimer = null;
-        }
-      }
+      _cancelScheduledReconnect();
+      _connectionStatus.retryCount = 0;
       _connect();
     }
   }
 
+  /// Tell the client the host application went to the background.
+  ///
+  /// The connection is left alone - the OS may keep it alive - but the client
+  /// stops assuming its timers are reliable from this point on.
+  void notifyAppPaused() {
+    printDebug('App paused');
+    _appIsPaused = true;
+  }
+
+  /// Tell the client the host application came back to the foreground.
+  ///
+  /// This checks how long it has actually been (by wall clock) since the last
+  /// message arrived. A process that was suspended wakes up with timers that
+  /// never fired and a socket the server may have already discarded, so a
+  /// stale connection is torn down and replaced immediately instead of waiting
+  /// for the next ping to time out.
+  void notifyAppResumed() {
+    printDebug('App resumed');
+    _appIsPaused = false;
+    checkLiveness();
+  }
+
+  /// Verify the connection is still alive, tearing it down and reconnecting if
+  /// it is not. Safe to call at any time.
+  void checkLiveness() {
+    if (!_isTryToReconnect) {
+      // The user explicitly disconnected; leave it alone.
+      return;
+    }
+    if (_connectionStatus.status == DdpConnectionStatusValues.connected) {
+      var last = _lastMessageReceivedAt;
+      var silentFor = last == null
+          ? stalenessThreshold
+          : DateTime.now().difference(last);
+      if (silentFor >= stalenessThreshold) {
+        printDebug(
+          'Connection considered stale - nothing received for $silentFor',
+        );
+        _handleConnectionLost('Connection went stale while suspended');
+      }
+      return;
+    }
+    // Not connected: the user is looking at the app, so try again now rather
+    // than sitting out the remaining backoff.
+    _cancelScheduledReconnect();
+    _connectionStatus.retryCount = 0;
+    _connect();
+  }
+
+  /// Disconnect the client from the server. The client stays offline until
+  /// [reconnect] is called.
   void disconnect() {
     printDebug('Begin of disconnect()');
     _isTryToReconnect = false;
-    if (_socket != null) {
-      _socket!.sink.close().then((value) {
-        _socket = null;
-      }).catchError((err) {
-        printDebug(err);
-        _socket = null;
-      });
-    }
-    // Cancel ping-pong timer
-    if (_pingPeriodicTimer != null) {
-      _pingPeriodicTimer!.cancel();
-      _pingPeriodicTimer = null;
-    }
-
-    // Reset ping-pong flag
-    _flagToBeResetAtPongMsg = false;
-
-    serverId = null;
-    sessionId = null;
+    _cancelScheduledReconnect();
+    _teardownConnection('Disconnected by the client');
+    _connectionStatus.retryCount = 0;
     _connectionStatus.connected = false;
     _connectionStatus.status = DdpConnectionStatusValues.offline;
-    _connectionStatus.retryCount = 0;
     _connectionStatus.reason = null;
-    _statusStreamController.sink.add(_connectionStatus);
+    _emitStatus();
     printDebug('End of disconnect()');
   }
 
-  void _connect() async {
-    if (_connectionStatus.status != DdpConnectionStatusValues.connected &&
-        _connectionStatus.status != DdpConnectionStatusValues.connecting) {
-      _isTryToReconnect = true;
-      _connectionStatus.status = DdpConnectionStatusValues.connecting;
-      _connectionStatus.reason = null;
-      _statusStreamController.sink.add(_connectionStatus);
-      try {
-        _socket = WebSocketChannel.connect(Uri.parse(url));
-        _connectionStatus.retryCount = 0;
-        _connectionStatus.retryTime = Duration(seconds: 1);
-        _socket!.stream.listen(
-          _onData,
-          onDone: _onDone,
-          onError: _onError,
-          cancelOnError: true,
-        );
-        _sendMsgConnect();
-      } catch (err) {
-        print(err);
-        _connectionStatus.status = DdpConnectionStatusValues.failed;
-        _connectionStatus.reason = err.toString();
-        _statusStreamController.sink.add(_connectionStatus);
-        _socket = null;
-        printDebug(
-          'Schedule to reconnect due to websocket exception while trying to connect to the server!',
-        );
-        _scheduleReconnect();
-      }
+  /// Close the current socket and release everything attached to it, without
+  /// deciding whether to reconnect. [reason] is reported to any in-flight
+  /// method calls.
+  void _teardownConnection(String reason) {
+    _pingPeriodicTimer?.cancel();
+    _pingPeriodicTimer = null;
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = null;
+
+    var subscription = _socketSubscription;
+    _socketSubscription = null;
+    subscription?.cancel().catchError((Object err) {
+      printDebug('Error while cancelling the socket subscription: $err');
+    });
+
+    var socket = _socket;
+    _socket = null;
+    if (socket != null) {
+      socket.sink.close().catchError((Object err) {
+        printDebug('Error while closing the socket: $err');
+      });
+    }
+
+    serverId = null;
+    sessionId = null;
+    _lastMessageReceivedAt = null;
+    _failAllPendingMethodCalls(reason);
+  }
+
+  /// Handle a connection that dropped on its own (socket closed, error, or a
+  /// missed pong) as opposed to one the user closed. Always schedules a
+  /// reconnect.
+  void _handleConnectionLost(String reason) {
+    if (_connectionStatus.status == DdpConnectionStatusValues.waiting) {
+      // A reconnect is already pending; nothing more to do.
+      return;
+    }
+    printDebug('Connection lost: $reason');
+    _teardownConnection(reason);
+    _connectionStatus.connected = false;
+    _connectionStatus.status = DdpConnectionStatusValues.offline;
+    _connectionStatus.reason = reason;
+    _emitStatus();
+    if (_isTryToReconnect) {
+      _scheduleReconnect();
     }
   }
 
-  void _scheduleReconnect() {
-    if (_connectionStatus.status == DdpConnectionStatusValues.offline ||
-        _connectionStatus.status == DdpConnectionStatusValues.failed) {
-      _connectionStatus.retryCount++;
-      if (_connectionStatus.retryCount <= maxRetryCount) {
-        _connectionStatus.connected = false;
-        _connectionStatus.status = DdpConnectionStatusValues.waiting;
-        _connectionStatus.retryTime =
-            Duration(seconds: min(5 * (_connectionStatus.retryCount - 1), 30));
-        _connectionStatus.reason = null;
-        _statusStreamController.sink.add(_connectionStatus);
-        printDebug('Retry to connect in ${_connectionStatus.retryTime}');
-
-        if (_scheduleReconnectTimer != null) {
-          if (_scheduleReconnectTimer!.isActive) {
-            _scheduleReconnectTimer!.cancel();
-            _scheduleReconnectTimer = null;
-          }
-        }
-        _scheduleReconnectTimer = Timer(_connectionStatus.retryTime, () {
-          printDebug('Retry to connect count: ${_connectionStatus.retryCount}');
-          _connect();
-        });
-      } else {
-        _connectionStatus.connected = false;
-        _connectionStatus.status = DdpConnectionStatusValues.failed;
-        _connectionStatus.reason = 'DDP. Reach max retry attempt';
-        _statusStreamController.sink.add(_connectionStatus);
-      }
+  void _failMethodCall(String id, String reason) {
+    var completer = _methodCompleters.remove(id);
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(MeteorConnectionError(reason));
     }
+  }
+
+  void _failAllPendingMethodCalls(String reason) {
+    if (_methodCompleters.isEmpty) {
+      return;
+    }
+    printDebug(
+      'Failing ${_methodCompleters.length} in-flight method call(s): $reason',
+    );
+    var pending = Map<String, Completer<dynamic>>.from(_methodCompleters);
+    _methodCompleters.clear();
+    pending.forEach((id, completer) {
+      if (!completer.isCompleted) {
+        completer.completeError(MeteorConnectionError(reason));
+      }
+    });
+  }
+
+  void _cancelScheduledReconnect() {
+    _scheduleReconnectTimer?.cancel();
+    _scheduleReconnectTimer = null;
+  }
+
+  void _connect() async {
+    if (_connectionStatus.status == DdpConnectionStatusValues.connected ||
+        _connectionStatus.status == DdpConnectionStatusValues.connecting) {
+      return;
+    }
+    _isTryToReconnect = true;
+    _connectionStatus.status = DdpConnectionStatusValues.connecting;
+    _connectionStatus.reason = null;
+    _emitStatus();
+
+    WebSocketChannel channel;
+    try {
+      channel = WebSocketChannel.connect(Uri.parse(url));
+    } catch (err) {
+      printDebug('Failed to create the websocket: $err');
+      _handleConnectionLost('Failed to create the websocket: $err');
+      return;
+    }
+    _socket = channel;
+
+    // The sink reports failures on its `done` future. Without a handler these
+    // escape as unhandled async errors and take the whole application down.
+    unawaited(channel.sink.done.catchError((Object err) {
+      printDebug('Websocket sink closed with an error: $err');
+      return null;
+    }));
+
+    try {
+      await channel.ready;
+    } catch (err) {
+      if (!identical(_socket, channel)) {
+        // Superseded by a newer attempt (or an explicit disconnect).
+        return;
+      }
+      printDebug('Websocket failed to connect: $err');
+      _handleConnectionLost('Websocket failed to connect: $err');
+      return;
+    }
+
+    if (!identical(_socket, channel)) {
+      // The client moved on while we were connecting.
+      channel.sink.close().catchError((Object err) => null);
+      return;
+    }
+
+    _lastMessageReceivedAt = DateTime.now();
+    _socketSubscription = channel.stream.listen(
+      _onData,
+      onDone: _onDone,
+      onError: _onError,
+      cancelOnError: true,
+    );
+    _sendMsgConnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_connectionStatus.status != DdpConnectionStatusValues.offline &&
+        _connectionStatus.status != DdpConnectionStatusValues.failed) {
+      return;
+    }
+    _connectionStatus.retryCount++;
+    if (_connectionStatus.retryCount <= maxRetryCount) {
+      _connectionStatus.connected = false;
+      _connectionStatus.status = DdpConnectionStatusValues.waiting;
+      _connectionStatus.retryTime = _retryIntervalFor(
+        _connectionStatus.retryCount,
+      );
+      _emitStatus();
+      printDebug('Retry to connect in ${_connectionStatus.retryTime}');
+
+      _cancelScheduledReconnect();
+      _scheduleReconnectTimer = Timer(_connectionStatus.retryTime, () {
+        _scheduleReconnectTimer = null;
+        printDebug('Retry to connect count: ${_connectionStatus.retryCount}');
+        if (_isTryToReconnect) {
+          _connect();
+        }
+      });
+    } else {
+      _connectionStatus.connected = false;
+      _connectionStatus.status = DdpConnectionStatusValues.failed;
+      _connectionStatus.reason = 'DDP. Reach max retry attempt';
+      _emitStatus();
+    }
+  }
+
+  /// Back off linearly (0s, 5s, 10s, ...) up to [maxRetryInterval] so a device
+  /// that wakes without a network does not spin on the radio.
+  Duration _retryIntervalFor(int retryCount) {
+    var seconds = 5 * (retryCount - 1);
+    return Duration(
+      seconds: min(seconds, maxRetryInterval.inSeconds),
+    );
   }
 
   void _sendMsgConnect() {
@@ -301,12 +516,16 @@ class DdpClient {
       var msg = json.encode(data);
       printDebug('Send: $msg');
       _socket!.sink.add(msg);
-
-      // Resend all subscriptions
-      _subscriptionHandlers.forEach((id, handler) {
-        _sendMsgSub(id, handler.subName, handler.args);
-      });
     }
+  }
+
+  /// Re-send every live subscription on a freshly established connection.
+  /// Called only once the server has replied `connected` and the reconnect
+  /// callbacks (in practice, the login resume) have finished.
+  void _resendSubscriptions() {
+    _subscriptionHandlers.forEach((id, handler) {
+      _sendMsgSub(id, handler.subName, handler.args);
+    });
   }
 
   void _sendMsgPing() {
@@ -315,18 +534,17 @@ class DdpClient {
       printDebug('Send: $msg');
       _socket!.sink.add(msg);
       var sentTime = DateTime.now();
-      _flagToBeResetAtPongMsg = true;
-      Future.delayed(Duration(seconds: pongTimeoutSeconds), () {
-        if (_flagToBeResetAtPongMsg == true) {
-          printDebug('');
-          printDebug('Disconnect due to not receiving PONG');
-          printDebug('The latest PING was sent since $sentTime');
-          printDebug('The current time is ${DateTime.now()}');
-          printDebug(
-            'Time diff since the PING was sent is ${DateTime.now().difference(sentTime)}',
-          );
-          disconnect();
-        }
+      // Start the clock on the first unanswered ping only. Restarting it per
+      // ping would forgive a missed pong forever whenever pongTimeout is not
+      // shorter than pingInterval; the timer is cleared when a pong arrives.
+      _pongTimeoutTimer ??= Timer(pongTimeout, () {
+        _pongTimeoutTimer = null;
+        printDebug('Disconnect due to not receiving PONG');
+        printDebug('The latest PING was sent since $sentTime');
+        printDebug(
+          'Time diff since the PING was sent is ${DateTime.now().difference(sentTime)}',
+        );
+        _handleConnectionLost('No PONG received within $pongTimeout');
       });
     }
   }
@@ -383,10 +601,60 @@ class DdpClient {
     }
   }
 
+  /// Runs once the server accepted the connection: mark the client connected,
+  /// give the reconnect callbacks a chance to restore the login, then re-send
+  /// the subscriptions.
+  Future<void> _onConnected(Map<String, dynamic> dataMap) async {
+    _connectionStatus.connected = true;
+    _connectionStatus.status = DdpConnectionStatusValues.connected;
+    _connectionStatus.reason = null;
+    _connectionStatus.retryCount = 0;
+    _connectionStatus.retryTime = Duration(seconds: 0);
+    _emitStatus();
+    sessionId = dataMap['session'];
+
+    _pingPeriodicTimer?.cancel();
+    _pingPeriodicTimer = Timer.periodic(pingInterval, (timer) {
+      if (_appIsPaused) {
+        // Timers are unreliable while suspended; liveness is re-checked on
+        // resume instead of tearing the connection down from a late timer.
+        return;
+      }
+      _sendMsgPing();
+    });
+
+    var callbacks = List<OnReconnectionCallback>.from(
+      _onReconnectCallbacks.values,
+    );
+    for (var reconnectCallback in callbacks) {
+      try {
+        await reconnectCallback.callback(reconnectCallback);
+      } catch (err) {
+        printDebug('onReconnect callback failed: $err');
+      }
+      if (_connectionStatus.status != DdpConnectionStatusValues.connected) {
+        // Lost the connection again while restoring it.
+        return;
+      }
+    }
+    _resendSubscriptions();
+  }
+
   void _onData(dynamic data) {
     printDebug('Received: $data');
+    _lastMessageReceivedAt = DateTime.now();
     var dataMap = json.decode(data) ?? {};
     var msg = dataMap['msg'];
+    if (msg == 'ping') {
+      // Answer regardless of state so the server never times us out.
+      _sendMsgPong();
+      return;
+    }
+    if (msg == 'pong') {
+      _pongTimeoutTimer?.cancel();
+      _pongTimeoutTimer = null;
+      return;
+    }
     if (_connectionStatus.status == DdpConnectionStatusValues.connecting) {
       if (dataMap['server_id'] != null) {
         serverId = dataMap['server_id'];
@@ -394,26 +662,7 @@ class DdpClient {
           print('DDP[${_socket.hashCode}] - Server ID: $serverId');
         }
       } else if (msg == 'connected') {
-        for (var reconnectCallback in _onReconnectCallbacks.values) {
-          reconnectCallback.callback(reconnectCallback);
-        }
-
-        _connectionStatus.connected = true;
-        _connectionStatus.status = DdpConnectionStatusValues.connected;
-        _connectionStatus.reason = null;
-        _statusStreamController.sink.add(_connectionStatus);
-        sessionId = dataMap['session'];
-
-        // Cancel ping-pong timer
-        if (_pingPeriodicTimer != null) {
-          _pingPeriodicTimer!.cancel();
-          _pingPeriodicTimer = null;
-        }
-
-        _pingPeriodicTimer =
-            Timer.periodic(Duration(seconds: pingIntervalSeconds), (timer) {
-          _sendMsgPing();
-        });
+        unawaited(_onConnected(dataMap));
       } else if (msg == 'failed') {
         serverId = null;
         sessionId = null;
@@ -421,15 +670,11 @@ class DdpClient {
         _connectionStatus.status = DdpConnectionStatusValues.failed;
         _connectionStatus.reason =
             'Failed connect to server. Protocol version ${dataMap['version']} is suggested!';
-        _statusStreamController.sink.add(_connectionStatus);
+        _emitStatus();
       }
     } else if (_connectionStatus.status ==
         DdpConnectionStatusValues.connected) {
-      if (msg == 'ping') {
-        _sendMsgPong();
-      } else if (msg == 'pong') {
-        _flagToBeResetAtPongMsg = false;
-      } else if (msg == 'nosub') {
+      if (msg == 'nosub') {
         if (dataMap['id'] != null) {
           String id = dataMap['id'];
           var sub = _subscriptions[id];
@@ -472,7 +717,7 @@ class DdpClient {
       } else if (msg == 'result') {
         if (dataMap['id'] != null) {
           String id = dataMap['id'];
-          var completer = _methodCompleters[id];
+          var completer = _methodCompleters.remove(id);
           if (completer != null) {
             if (dataMap['error'] != null) {
               completer.completeError(dataMap['error']);
@@ -481,7 +726,6 @@ class DdpClient {
               var result = dataMap['result'];
               completer.complete(result);
             }
-            _methodCompleters.remove(id);
           } else {
             printDebug('No method completer found!');
           }
@@ -543,31 +787,18 @@ class DdpClient {
   }
 
   void _onDone() {
-    _socket = null;
     if (_isTryToReconnect) {
-      printDebug(
-        'Disconnect the socket due to "onDone" event on the websocket!',
-      );
-      disconnect();
-      printDebug(
-        'ScheduleReconnect due to "onDone" event on the websocket!',
-      );
-      _scheduleReconnect();
+      _handleConnectionLost('The websocket was closed by the other side');
     } else {
-      disconnect();
+      _teardownConnection('The websocket was closed');
     }
   }
 
   void _onError(dynamic error) {
-    _socket = null;
     if (_isTryToReconnect) {
-      printDebug('Disconnect due to "onError" event on the websocket!');
-      disconnect();
-      printDebug('ScheduleReconnect due to "onError" event on the websocket!');
-      _scheduleReconnect();
+      _handleConnectionLost('Websocket error: $error');
     } else {
-      printDebug('Disconnect due to "onError" event on the websocket!');
-      disconnect();
+      _teardownConnection('Websocket error: $error');
     }
   }
 }

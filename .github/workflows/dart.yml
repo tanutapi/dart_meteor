@@ -18,6 +18,8 @@ jobs:
         run: dart analyze
       - name: Run DDP protocol tests (no server required)
         run: dart test test/ddp_mock_server_test.dart
+      - name: Run connection lifecycle tests (no server required)
+        run: dart test test/lifecycle_test.dart
       - name: Prepare docker network
         run: docker network create test_net
       - name: Start MongoDB

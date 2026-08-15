@@ -92,13 +92,25 @@ class MeteorClient {
   MeteorClient.connect(
       {required String url,
       bool debug = false,
-      userAgent = 'DartMeteor/4.0.0'}) {
+      userAgent = 'DartMeteor/4.1.0',
+      Duration? pingInterval,
+      Duration? pongTimeout,
+      Duration? maxRetryInterval,
+      Duration? stalenessThreshold}) {
     url = url.replaceFirst(RegExp(r'^http'), 'ws');
     if (!url.endsWith('websocket')) {
       url = '${url.replaceFirst(RegExp(r'/$'), '')}/websocket';
     }
     print('MeteorClient[$hashCode] - Make a connection to $url');
-    connection = DdpClient(url: url, debug: debug, userAgent: userAgent);
+    connection = DdpClient(
+      url: url,
+      debug: debug,
+      userAgent: userAgent,
+      pingInterval: pingInterval,
+      pongTimeout: pongTimeout,
+      maxRetryInterval: maxRetryInterval,
+      stalenessThreshold: stalenessThreshold,
+    );
 
     connection.status().listen((ddpStatus) {
       _statusSubject.add(ddpStatus);
@@ -168,9 +180,12 @@ class MeteorClient {
       ..onError((dynamic error) {})
       ..onDone(() {});
 
-    connection.onReconnect((OnReconnectionCallback reconnectionCallback) {
+    // Awaited by the DdpClient before subscriptions are re-sent, so
+    // publications that depend on `this.userId` see the resumed login instead
+    // of an anonymous connection.
+    connection.onReconnect((OnReconnectionCallback reconnectionCallback) async {
       print('MeteorClient[$hashCode] - connection.onReconnect()');
-      _loginWithExistingToken().catchError((error) {
+      await _loginWithExistingToken().catchError((error) {
         return null;
       });
     });
@@ -343,6 +358,33 @@ class MeteorClient {
   /// Disconnect the client from the server.
   void disconnect() {
     connection.disconnect();
+  }
+
+  /// Tell the client that the host application went to the background.
+  ///
+  /// Flutter apps should call this from a [WidgetsBindingObserver] when the
+  /// lifecycle state becomes `paused`, `inactive`, `detached` or `hidden`. See
+  /// the "App lifecycle" section of the README.
+  void notifyAppPaused() {
+    connection.notifyAppPaused();
+  }
+
+  /// Tell the client that the host application returned to the foreground.
+  ///
+  /// A device that was asleep wakes up with timers that never fired and a
+  /// socket the server may already have discarded. This checks by wall clock
+  /// how long the connection has actually been silent and reconnects
+  /// immediately if it is stale, instead of waiting for the next ping to time
+  /// out. Call it when the lifecycle state becomes `resumed`.
+  void notifyAppResumed() {
+    connection.notifyAppResumed();
+  }
+
+  /// Verify the connection is still alive right now, reconnecting if it is
+  /// not. [notifyAppResumed] calls this for you; call it directly if the app
+  /// learns some other way that connectivity may have changed.
+  void checkLiveness() {
+    connection.checkLiveness();
   }
 
   // ===========================================================
