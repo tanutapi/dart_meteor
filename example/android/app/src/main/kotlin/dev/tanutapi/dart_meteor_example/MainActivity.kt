@@ -1,4 +1,4 @@
-package com.example.dart_meteor_example_app
+package dev.tanutapi.dart_meteor_example
 
 import io.flutter.embedding.android.FlutterActivity
 

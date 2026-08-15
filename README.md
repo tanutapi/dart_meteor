@@ -14,7 +14,8 @@ Designed to work seamlessly with `StreamBuilder` and `FutureBuilder`.
 - Method calls with `Future`-based results
 - Subscriptions and reactive collections as `Stream`s
 - Accounts: login with password/token, logout, password management
-- Automatic reconnection with re-login and re-subscription
+- Automatic reconnection with backoff, re-login and re-subscription
+- App lifecycle aware: detects a connection that died while the device slept
 - `DateTime` values are converted to/from EJSON `$date` automatically
 
 ## Installation
@@ -23,7 +24,7 @@ Add the package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  dart_meteor: ^4.0.0
+  dart_meteor: ^4.1.0
 ```
 
 ## Quick start
@@ -90,9 +91,11 @@ class MyApp extends StatelessWidget {
 }
 ```
 
-A complete runnable app is in [/example][example], and there is a longer
-walk-through covering connection status, authentication, and subscriptions in
-[this Medium post][medium].
+A complete runnable app is in [/example][example]: a Flutter chat client
+(iOS, Android and Web) that connects to the live demo server at
+`https://simple-meteor-chat.tanutapi.dev` and exercises login, subscriptions,
+collections and method calls. There is also a longer walk-through covering
+connection status, authentication, and subscriptions in [this Medium post][medium].
 
 ## Method calls
 
@@ -251,7 +254,70 @@ meteor.disconnect(); // close the connection and stop reconnecting
 ```
 
 While connected, the client exchanges DDP ping/pong with the server and
-reconnects (with backoff) when the connection is considered dead.
+reconnects when the connection is considered dead, backing off between
+attempts (0s, 5s, 10s, … up to `maxRetryInterval`) so an unreachable server
+does not keep the radio busy. `disconnect()` is final: the client stays offline
+until you call `reconnect()`.
+
+The timings are configurable if the defaults do not suit your server:
+
+```dart
+final meteor = MeteorClient.connect(
+  url: 'https://yourdomain.com',
+  pingInterval: const Duration(seconds: 20),
+  pongTimeout: const Duration(seconds: 5),
+  maxRetryInterval: const Duration(seconds: 30),
+  stalenessThreshold: const Duration(seconds: 25),
+);
+```
+
+### App lifecycle (mobile)
+
+When a phone sleeps, the OS suspends the process: Dart timers stop firing, and
+the server can drop the session without the socket ever reporting an error. The
+app then wakes up believing it is still connected, and stays that way until the
+next ping happens to time out.
+
+`dart_meteor` is a pure Dart package, so it does not watch Flutter's lifecycle
+itself. Forward it from a `WidgetsBindingObserver` — this is the whole
+integration:
+
+```dart
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      meteor.notifyAppResumed();
+    } else {
+      meteor.notifyAppPaused();
+    }
+  }
+}
+```
+
+On resume the client measures by wall clock how long it was actually away
+rather than trusting its timers. If the connection has been silent longer than
+`stalenessThreshold` it is torn down and replaced immediately, re-resuming the
+login and re-subscribing. While paused, the client will not tear down a
+connection just because a timer fired late.
+
+`meteor.checkLiveness()` runs the same check on demand — useful if your app
+learns from somewhere else (a connectivity plugin, say) that the network may
+have changed.
+
+The [example app][example] wires this up in `lib/main.dart`.
 
 ## Error handling
 
@@ -259,11 +325,35 @@ Server-side `Meteor.Error`s are thrown as `MeteorError`, which exposes
 `error`, `reason`, `message`, `details`, `errorType`, and `isClientSafe` — the
 same fields you get in a Meteor web client.
 
+A call that was still in flight when the connection dropped — because the
+device slept, or the network went away — throws `MeteorConnectionError`
+instead. The two are worth distinguishing: `MeteorError` means the server
+considered the request and said no, while `MeteorConnectionError` means you
+never heard back and the method may or may not have run.
+
+```dart
+try {
+  await meteor.call('sendMessage', args: ['hello']);
+} on MeteorError catch (err) {
+  // The server rejected it.
+} on MeteorConnectionError catch (err) {
+  // Never got a reply — offer a retry.
+}
+```
+
+Calls are not resent automatically after a reconnect: a method like
+`sendMessage` is not safe to run twice, so whether to retry is left to you.
+
 ## Upgrading
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history. The notable breaking
 changes:
 
+- **4.1.0** — two behaviour changes worth knowing about, both fixes. A method
+  call that is in flight when the connection drops now throws
+  `MeteorConnectionError` instead of hanging forever, so `await meteor.call(…)`
+  can now throw where it previously never returned. And reconnect attempts now
+  back off instead of retrying immediately.
 - **4.0.0** — requires Dart 3.6+; verified against Meteor 3.x (incl. 3.5.1);
   web support via `web_socket_channel`. The `DdpClient.PING_SEC_INTERVAL` and
   `DdpClient.PONG_WITHIN_SEC` fields were renamed to the static constants
