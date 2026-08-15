@@ -1,147 +1,89 @@
-For Dart VM, Flutter iOS/Android/Web (master branch) ![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
+# dart_meteor — a Meteor DDP client for Dart/Flutter
 
-# A Meteor DDP library for Dart/Flutter developers.
+![](https://github.com/tanutapi/dart_meteor/workflows/Testing/badge.svg?branch=master)
 
-This library connects the Meteor backend and the Flutter app—designed to work seamlessly with StreamBuilder and FutureBuilder.
+Connect your Flutter app to a [Meteor](https://www.meteor.com/) backend over DDP.
+Designed to work seamlessly with `StreamBuilder` and `FutureBuilder`.
 
-## Change on 4.0.0-beta.1
-Using the `web_socket_channel` to make this package supports Dart VM, iOS, Android, and Web. Thank you to mel-mouk.
+- **Platforms:** Dart VM, Flutter iOS/Android/Web
+- **Dart:** 3.6 or newer
+- **Meteor:** compatible with Meteor 2.x and 3.x servers (tested against Meteor 3.5.1)
 
-## Change on 3.1.0 ##
-Bump the SDK version to <4.0.0 and update dependencies.
+## Features
 
-## Change on 3.0.0 ##
-BREAKING CHANGE. The `meteor.collection('collectionName')` streams are now `snapshot.hasData == true` and have an empty map at the beginning.
+- Method calls with `Future`-based results
+- Subscriptions and reactive collections as `Stream`s
+- Accounts: login with password/token, logout, password management
+- Automatic reconnection with backoff, re-login and re-subscription
+- App lifecycle aware: detects a connection that died while the device slept
+- `DateTime` values are converted to/from EJSON `$date` automatically
 
-## Change on 2.0.0 ##
+## Installation
 
-Passing arguments to the meteor method is now optional. In version 1.x.x you did: `meteor.call('your_method_name', [param1, param2])`. Now in version 2.x.x and greater, it will be `meteor.call('your_method_name', args: [param1, param2])` or just `meteor.call('your_method_name')` if you don't want to pass any argument to your method.
+Add the package to your `pubspec.yaml`:
 
-Same as a subscription. In version 1.x.x you did: `meteor.subscribe('your_pub', [param1, param2])`. Now in version 2.x.x and greater, it will be `meteor.subscribe('your_pub', args: [param1, param2])` or just `meteor.subscribe('your_pub')` if you don't want to pass any argument to your publish function.
+```yaml
+dependencies:
+  dart_meteor: ^4.1.0
+```
 
-In version 1.x.x, you have to call `meteor.prepareCollection('your_collection_name')` before you can use it. Now in version 2.x.x, you don't have to prepare a collection. You now access the collection by calling `collection` method `meteor.collection('messages').listen((value) { ... })`.
+## Quick start
 
-`DateTime` is now directly supported. You can pass a `DateTime` variable as a meteor method parameter and receive DateTime from the collections and methods.
-
-## Usage
-
-I have published a post on Medium showing how to handle connection status, user authentication, and subscriptions. Please check https://medium.com/@tanutapi/writing-flutter-mobile-application-with-meteor-backend-643d2c1947d0?source=friends_link&sk=52ce2fa2603934e7395e2d19dd54e06c
-
-A simple usage example:
-
-First, create an instance of MeteorClient in your app's global scope to use it anywhere in your project.
+Create a single `MeteorClient` instance in your app's global scope so you can
+use it anywhere in your project. The client connects immediately and keeps the
+connection alive:
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:dart_meteor/dart_meteor.dart';
 
-MeteorClient meteor = MeteorClient.connect(url: 'https://yourdomain.com');
+final meteor = MeteorClient.connect(url: 'https://yourdomain.com');
+
 void main() => runApp(MyApp());
 ```
 
-In your StatefulWidget/StatelessWidget, thanks to [rxdart][rxdart], you can use FutuerBuilder or StreamBuilder to build your widget based on a response from meteor's DDP server.
+The `url` may be `https://…` or `wss://…`; the client appends the `/websocket`
+DDP endpoint for you.
+
+Then build widgets from the client's streams:
 
 ```dart
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  String _methodResult = '';
-
-  void _callMethod() {
-    meteor.call('helloMethod').then((result) {
-      setState(() {
-        _methodResult = result.toString();
-      });
-    }).catchError((err) {
-      if (err is MeteorError) {
-        setState(() {
-          _methodResult = err.message;
-        });
-      }
-    });
-  }
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: Text('Package dart_meteor Example'),
-        ),
-        body: Container(
-          padding: EdgeInsets.all(8.0),
-          child: Column(
-            children: <Widget>[
-              StreamBuilder<DdpConnectionStatus>(
-                stream: meteor.status(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    if (snapshot.data.status ==
-                        DdpConnectionStatusValues.connected) {
-                      return RaisedButton(
-                        child: Text('Disconnect'),
-                        onPressed: () {
-                          meteor.disconnect();
-                        },
-                      );
-                    }
-                    return RaisedButton(
-                      child: Text('Connect'),
-                      onPressed: () {
-                        meteor.reconnect();
-                      },
-                    );
-                  }
-                  return Container();
-                },
-              ),
-              StreamBuilder<DdpConnectionStatus>(
-                stream: meteor.status(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return Text('Meteor Status ${snapshot.data.toString()}');
-                  }
-                  return Text('Meteor Status: ---');
-                },
-              ),
-              StreamBuilder(
-                  stream: meteor.userId(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return RaisedButton(
-                        child: Text('Logout'),
-                        onPressed: () {
-                          meteor.logout();
-                        },
-                      );
-                    }
-                    return RaisedButton(
-                      child: Text('Login'),
-                      onPressed: () {
-                        meteor.loginWithPassword(
-                            'yourusername', 'yourpassword');
-                      },
-                    );
-                  }),
-              StreamBuilder(
-                stream: meteor.user(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return Text(snapshot.data.toString());
-                  }
-                  return Text('User: ----');
-                },
-              ),
-              RaisedButton(
-                child: Text('Method Call'),
-                onPressed: _callMethod,
-              ),
-              Text(_methodResult),
-            ],
-          ),
+        appBar: AppBar(title: const Text('dart_meteor example')),
+        body: Column(
+          children: [
+            // Show the live connection status.
+            StreamBuilder<DdpConnectionStatus>(
+              stream: meteor.status(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Text('Status: ---');
+                return Text('Status: ${snapshot.data}');
+              },
+            ),
+            // Show a login/logout button depending on the current user.
+            StreamBuilder<String?>(
+              stream: meteor.userId(),
+              builder: (context, snapshot) {
+                if (snapshot.data != null) {
+                  return ElevatedButton(
+                    onPressed: () => meteor.logout(),
+                    child: const Text('Logout'),
+                  );
+                }
+                return ElevatedButton(
+                  onPressed: () =>
+                      meteor.loginWithPassword('username', 'password'),
+                  child: const Text('Login'),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -149,83 +91,77 @@ class _MyAppState extends State<MyApp> {
 }
 ```
 
-## Making a method call to your server
+A complete runnable app is in [/example][example]: a Flutter chat client
+(iOS, Android and Web) that connects to the live demo server at
+`https://simple-meteor-chat.tanutapi.dev` and exercises login, subscriptions,
+collections and method calls. There is also a longer walk-through covering
+connection status, authentication, and subscriptions in [this Medium post][medium].
 
-Making a method call to your server returns a Future. You MUST handle `catchError` to prevent your app from crashing if something goes wrong. 
+## Method calls
+
+`meteor.call()` returns a `Future`. Always handle errors — an unhandled
+`MeteorError` will otherwise crash your app:
 
 ```dart
-meteor.call('helloMethod').then((result) {
-  setState(() {
-    _methodResult = result.toString();
-  });
-}).catchError((err) {
-  if (err is MeteorError) {
-    setState(() {
-      _methodResult = err.message;
-    });
-  }
-});
+try {
+  final result = await meteor.call('sumMethod', args: [5, 10]);
+  print('Answer is $result'); // 15
+} on MeteorError catch (err) {
+  print('${err.error}: ${err.reason}');
+}
 ```
-You can also use it with a FutureBuilder.
+
+Arguments are optional — `meteor.call('helloMethod')` works too. A `DateTime`
+anywhere in the arguments or the result is converted to/from Meteor's EJSON
+date format automatically.
+
+Method calls also fit naturally into a `FutureBuilder`:
+
 ```dart
-FutureBuilder<int>(
+FutureBuilder<dynamic>(
   future: meteor.call('sumMethod', args: [5, 10]),
   builder: (context, snapshot) {
-    if (snapshot.hasData) {
-      // your snapshot.data should be 5 + 10 = 15
-      return Text('Answer is: ${snapshot.data}');
-    }
+    if (snapshot.hasError) return Text('Error: ${snapshot.error}');
+    if (!snapshot.hasData) return const CircularProgressIndicator();
+    return Text('Answer is: ${snapshot.data}');
   },
 ),
 ```
 
-You can find an example project inside [/example][example].
+## Subscriptions and collections
 
-## Collections & Subscriptions
-You can access your collections by calling `collection('your_collection_name')`.
-It will return a `Stream`, which you can use with your `StreamBuilder`. Through the returned `Stream` reference, you can listen to the updates of the collection.
-
-```dart
-meteor.collection('your_collections');
-```
-
-The above code will return a stream backed by the rxdart `BehaviorSubject`, a special StreamController that captures the latest item added to the Stream and emits it as the first item to any new listener. You can use it as a regular Stream. 
-
-To make collections available in the Flutter app, you might make a subscription to your server with the following:
+Subscribe to a publication on the server, and read the documents it publishes
+through `meteor.collection()`:
 
 ```dart
 class YourWidget extends StatefulWidget {
-  YourWidget() {}
+  const YourWidget({super.key});
 
   @override
-  _YourWidgetState createState() => _YourWidgetState();
+  State<YourWidget> createState() => _YourWidgetState();
 }
 
 class _YourWidgetState extends State<YourWidget> {
-  SubscriptionHandler _subscriptionHandler;
+  late SubscriptionHandler _subscription;
 
   @override
   void initState() {
     super.initState();
-    _subscriptionHandler = meteor.subscribe('your_pub', args: ['param_1', 'param_2']);
+    _subscription = meteor.subscribe('your_pub', args: ['param_1', 'param_2']);
   }
 
   @override
   void dispose() {
-    _subscriptionHandler.stop();
+    _subscription.stop();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
+    return StreamBuilder<Map<String, dynamic>>(
       stream: meteor.collection('your_collection'),
-      builder:
-          (context, AsyncSnapshot<Map<String, dynamic>> snapshot) {
-        int docCount = 0;
-        if (snapshot.hasData) {
-          docCount = snapshot.data.length;
-        }
+      builder: (context, snapshot) {
+        final docCount = snapshot.data?.length ?? 0;
         return Text('Total document count: $docCount');
       },
     );
@@ -233,44 +169,201 @@ class _YourWidgetState extends State<YourWidget> {
 }
 ```
 
-The collection was returned as a Map<String, dynamic>. The key is a document .\_id, and its value is the whole document.
+Details worth knowing:
 
-Ex.
-```
+- `meteor.subscribe()` returns a `SubscriptionHandler` with `stop()` and a
+  `ready()` stream that emits `true` once the server has sent the initial
+  batch of documents. Optional `onReady` and `onStop` callbacks are also
+  supported. Subscriptions are re-established automatically after a reconnect.
+- `meteor.collection()` returns a stream backed by an rxdart
+  `BehaviorSubject`: every new listener immediately receives the latest value,
+  so a `StreamBuilder` starts with `snapshot.hasData == true` and an empty map
+  before any documents arrive.
+- The emitted value is a `Map<String, dynamic>` keyed by document `_id`, with
+  the whole document as the value:
+
+```jsonc
 {
   "DGbsysgxzSf7Cr8Jg": {
-    "_id": "DGbsysgxzSf7Cr8Jg", 
-    field1: 0, 
-    field2: "a", 
-    field3: true, 
-    field4: SomeDate
+    "_id": "DGbsysgxzSf7Cr8Jg",
+    "field1": 0,
+    "field2": "a",
+    "field3": true,
+    "field4": "2020-08-30T16:15:57.000Z" // delivered as a Dart DateTime
   }
 }
 ```
-We don't provide something like minimongo as the official Meteor did. You can use `reduce`, `map`, and `where` with the collection and get the same result as you did with a query in the `minimongo` `Meteor` web client.
 
-## Don't want to access data via Stream
-Getting the current data from a stream is sometimes complicated. Especially when you want to get the latest value just for condition checking, you can access the latest value from the `collection`, `user`, `userId` directly with `meteor.collectionCurrentValue('your_collection_name')`, `meteor.userCurrentValue()`, and `meteor.userIdCurrentValue()`.
+There is no minimongo on the client. Use plain Dart collection operations
+(`where`, `map`, `reduce`, …) to query the map — they cover the same ground as
+minimongo queries in the Meteor web client.
 
-## findOne with _id
-The best way to access the document if you have an id is
-```
-// Non-reactive
-// An example of accessing a document by its id
-final id = 'DGbsysgxzSf7Cr8Jg';
-final doc = meteor.collectionCurrentValue('your_collection_name')[id];
+### Looking up a document by id
+
+Since the collection is a map keyed by `_id`, a lookup is just an index
+operation:
+
+```dart
+// Non-reactive read of a document by its id.
+final doc = meteor.collectionCurrentValue('your_collection_name')?['DGbsysgxzSf7Cr8Jg'];
 if (doc != null) {
   // do something
 }
 
-// Non-reactive
-// An example of accessing a user by userId
-final userId = 'Sf7Cr8JgDGbsysgxz';
-final user = meteor.collectionCurrentValue('users')[userId];
-if (user != null) {
-  // do something
+// The same works for users.
+final user = meteor.collectionCurrentValue('users')?['Sf7Cr8JgDGbsysgxz'];
+```
+
+### Reading current values without a stream
+
+When you only need the latest value for a condition check — not a reactive
+rebuild — every major stream has a non-reactive counterpart:
+
+| Reactive stream | Current value |
+| --- | --- |
+| `meteor.collection(name)` | `meteor.collectionCurrentValue(name)` |
+| `meteor.user()` | `meteor.userCurrentValue()` |
+| `meteor.userId()` | `meteor.userIdCurrentValue()` |
+
+## Accounts
+
+```dart
+// Log in (works with a username or an email address; the password is sent
+// as a SHA-256 digest, never in plain text).
+final result = await meteor.loginWithPassword('user_or_email', 'password');
+
+// Resume a session with a saved token, e.g. after an app restart.
+await meteor.loginWithToken(token: result.token, tokenExpires: result.tokenExpires);
+
+// Log out.
+await meteor.logout();
+```
+
+Related APIs: `meteor.user()`, `meteor.userId()`, `meteor.loggingIn()`, and
+`meteor.logInStatus()` are reactive streams of the current account state;
+`logoutOtherClients()`, `changePassword()`, `forgotPassword()`, and
+`resetPassword()` cover the rest of the standard accounts flows. After a
+reconnect the client re-authenticates automatically using its stored token.
+
+## Connection management
+
+```dart
+meteor.status();     // Stream<DdpConnectionStatus>: connected/connecting/failed/waiting/offline
+meteor.reconnect();  // force a reconnection attempt if not connected
+meteor.disconnect(); // close the connection and stop reconnecting
+```
+
+While connected, the client exchanges DDP ping/pong with the server and
+reconnects when the connection is considered dead, backing off between
+attempts (0s, 5s, 10s, … up to `maxRetryInterval`) so an unreachable server
+does not keep the radio busy. `disconnect()` is final: the client stays offline
+until you call `reconnect()`.
+
+The timings are configurable if the defaults do not suit your server:
+
+```dart
+final meteor = MeteorClient.connect(
+  url: 'https://yourdomain.com',
+  pingInterval: const Duration(seconds: 20),
+  pongTimeout: const Duration(seconds: 5),
+  maxRetryInterval: const Duration(seconds: 30),
+  stalenessThreshold: const Duration(seconds: 25),
+);
+```
+
+### App lifecycle (mobile)
+
+When a phone sleeps, the OS suspends the process: Dart timers stop firing, and
+the server can drop the session without the socket ever reporting an error. The
+app then wakes up believing it is still connected, and stays that way until the
+next ping happens to time out.
+
+`dart_meteor` is a pure Dart package, so it does not watch Flutter's lifecycle
+itself. Forward it from a `WidgetsBindingObserver` — this is the whole
+integration:
+
+```dart
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      meteor.notifyAppResumed();
+    } else {
+      meteor.notifyAppPaused();
+    }
+  }
 }
 ```
+
+On resume the client measures by wall clock how long it was actually away
+rather than trusting its timers. If the connection has been silent longer than
+`stalenessThreshold` it is torn down and replaced immediately, re-resuming the
+login and re-subscribing. While paused, the client will not tear down a
+connection just because a timer fired late.
+
+`meteor.checkLiveness()` runs the same check on demand — useful if your app
+learns from somewhere else (a connectivity plugin, say) that the network may
+have changed.
+
+The [example app][example] wires this up in `lib/main.dart`.
+
+## Error handling
+
+Server-side `Meteor.Error`s are thrown as `MeteorError`, which exposes
+`error`, `reason`, `message`, `details`, `errorType`, and `isClientSafe` — the
+same fields you get in a Meteor web client.
+
+A call that was still in flight when the connection dropped — because the
+device slept, or the network went away — throws `MeteorConnectionError`
+instead. The two are worth distinguishing: `MeteorError` means the server
+considered the request and said no, while `MeteorConnectionError` means you
+never heard back and the method may or may not have run.
+
+```dart
+try {
+  await meteor.call('sendMessage', args: ['hello']);
+} on MeteorError catch (err) {
+  // The server rejected it.
+} on MeteorConnectionError catch (err) {
+  // Never got a reply — offer a retry.
+}
+```
+
+Calls are not resent automatically after a reconnect: a method like
+`sendMessage` is not safe to run twice, so whether to retry is left to you.
+
+## Upgrading
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history. The notable breaking
+changes:
+
+- **4.1.0** — two behaviour changes worth knowing about, both fixes. A method
+  call that is in flight when the connection drops now throws
+  `MeteorConnectionError` instead of hanging forever, so `await meteor.call(…)`
+  can now throw where it previously never returned. And reconnect attempts now
+  back off instead of retrying immediately.
+- **4.0.0** — requires Dart 3.6+; verified against Meteor 3.x (incl. 3.5.1);
+  web support via `web_socket_channel`. The `DdpClient.PING_SEC_INTERVAL` and
+  `DdpClient.PONG_WITHIN_SEC` fields were renamed to the static constants
+  `DdpClient.pingIntervalSeconds` and `DdpClient.pongTimeoutSeconds`.
+- **3.0.0** — `meteor.collection()` streams start with `snapshot.hasData ==
+  true` and an empty map instead of no data.
+- **2.0.0** — method/subscription arguments became a named parameter:
+  `meteor.call('method', args: [...])`, `meteor.subscribe('pub', args: [...])`
+  (both optional). `prepareCollection()` is no longer needed — just call
+  `meteor.collection()`. `DateTime` values are supported directly.
 
 ## Features and bugs
 
@@ -279,3 +372,4 @@ Please file feature requests and bugs at the [issue tracker][tracker].
 [tracker]: https://github.com/tanutapi/dart_meteor/issues
 [rxdart]: https://pub.dev/packages/rxdart
 [example]: https://github.com/tanutapi/dart_meteor/tree/master/example
+[medium]: https://medium.com/@tanutapi/writing-flutter-mobile-application-with-meteor-backend-643d2c1947d0?source=friends_link&sk=52ce2fa2603934e7395e2d19dd54e06c

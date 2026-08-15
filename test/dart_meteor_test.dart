@@ -7,6 +7,28 @@ import 'package:test/test.dart';
 
 var url = 'ws://127.0.0.1:3000';
 
+/// `login` resolves as soon as the method returns, but the user document
+/// arrives afterwards as a separate DDP `added` message on the `users`
+/// collection - measured at ~30ms against a local Meteor 3.x server. That
+/// matches Meteor's own semantics, where `userId` is available immediately
+/// and `user()` is reactive, so a test must await the document rather than
+/// read it synchronously.
+Future<void> _awaitUserDocument(MeteorClient meteor) async {
+  await meteor
+      .user()
+      .firstWhere((user) => user != null)
+      .timeout(Duration(seconds: 10));
+}
+
+/// The mirror of [_awaitUserDocument]: after logout the user stream drops back
+/// to null on the next event, not synchronously.
+Future<void> _awaitNoUserDocument(MeteorClient meteor) async {
+  await meteor
+      .user()
+      .firstWhere((user) => user == null)
+      .timeout(Duration(seconds: 10));
+}
+
 void main() {
   group('Environment', () {
     var meteor = MeteorClient.connect(
@@ -222,9 +244,11 @@ void main() {
       print('MeteorClientLoginResult: $result');
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
+      await _awaitUserDocument(meteor);
       expect(meteor.userCurrentValue(), isNotNull);
       await meteor.logout();
       expect(meteor.userIdCurrentValue(), isNull);
+      await _awaitNoUserDocument(meteor);
       expect(meteor.userCurrentValue(), isNull);
     });
 
@@ -233,11 +257,13 @@ void main() {
       print('MeteorClientLoginResult: $result1');
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
+      await _awaitUserDocument(meteor);
       expect(meteor.userCurrentValue(), isNotNull);
 
       var result2 = await meteor.logoutOtherClients();
       expect(result2, isNotNull);
       expect(meteor.userIdCurrentValue(), isNotNull);
+      await _awaitUserDocument(meteor);
       expect(meteor.userCurrentValue(), isNotNull);
       // Must be the same userId
       expect(result2.userId, result1.userId);
@@ -314,7 +340,10 @@ void main() {
         args: [],
         onReady: () {
           print('onReady is called.');
-          completer.complete(true);
+          // onReady fires again if the subscription is re-established.
+          if (!completer.isCompleted) {
+            completer.complete(true);
+          }
         },
       );
       await Future.delayed(Duration(seconds: 5));
@@ -394,7 +423,10 @@ void main() {
       meteor.collection('messages').listen((value) {
         var msgCnt = value.values.toList().length;
         print('resume subscription, message count: $msgCnt');
-        if (msgCnt == 2) {
+        // The collection stream can emit the same count more than once (a
+        // re-subscribe replays `added`, and messages leak in from earlier
+        // tests), so completing unguarded throws "Future already completed".
+        if (msgCnt == 2 && !completer.isCompleted) {
           completer.complete(true);
         }
       });
@@ -445,7 +477,7 @@ void main() {
           var assets = meteor.collectionCurrentValue('assets');
           if (username == 'user2' && assets!.length == 1) {
             assets.forEach((k, v) {
-              if (v['owner'] == 'user2') {
+              if (v['owner'] == 'user2' && !completer.isCompleted) {
                 completer.complete(true);
               }
             });
@@ -475,15 +507,14 @@ void main() {
       expect(completer.future, completion(true));
       await meteor.loginWithPassword('user1', 'password1');
       var reactive = BehaviorSubject();
-      SubscriptionHandler sub;
       reactive.add('user1');
       reactive.listen((username) {
-        sub = meteor.subscribe('assets', args: [username], onReady: () async {
+        meteor.subscribe('assets', args: [username], onReady: () async {
           await Future.delayed(Duration(seconds: 2));
           var assets = meteor.collectionCurrentValue('assets');
           if (username == 'user2' && assets!.length == 2) {
             assets.forEach((k, v) {
-              if (v['owner'] == 'user2') {
+              if (v['owner'] == 'user2' && !completer.isCompleted) {
                 completer.complete(true);
               }
             });
