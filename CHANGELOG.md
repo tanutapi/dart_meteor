@@ -1,3 +1,32 @@
+# 4.2.0
+
+DDP session resumption, matching
+[meteor/meteor#14051](https://github.com/meteor/meteor/pull/14051) (merged
+2026-03-06).
+
+Added:
+- After an unexpected disconnect the client keeps its DDP session id and asks
+  the server to resume it, sending `session` and `receivedCount` in `connect`.
+  When the server agrees (same session id back) the login, subscriptions and
+  in-flight method calls carry on untouched, messages published during the
+  gap arrive in order, and `onReconnect` callbacks are not run. When it does
+  not, the reconnect proceeds exactly as before: callbacks, re-subscribe, and
+  in-flight calls fail with `MeteorConnectionError`.
+- `DdpClient.resumedSession` reports whether the latest `connected` resumed
+  the previous session; `DdpClient.receivedCount` exposes the message count.
+- `disconnect()` sends a DDP `disconnect` message before closing the socket so
+  the server drops the session at once instead of keeping it for the grace
+  period.
+
+Changed:
+- In-flight method calls are no longer failed the moment the socket drops;
+  they are failed when the reconnect results in a new session, on an explicit
+  `disconnect()`, or when the retry limit is reached.
+
+Compatibility:
+- Servers without session resumption ignore the extra fields and start a new
+  session, so behaviour against them is unchanged.
+
 # 4.1.0
 
 Connection lifecycle fixes. The theme is a device that goes to sleep: the

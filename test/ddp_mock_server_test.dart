@@ -43,7 +43,7 @@ void main() {
 
     test('completes the version 1 handshake and exposes ids', () async {
       expect(meteor.connection.serverId, '0');
-      expect(meteor.connection.sessionId, 'mock-session-id');
+      expect(meteor.connection.sessionId, 'mock-session-1');
     });
 
     test('method call returns the result', () async {

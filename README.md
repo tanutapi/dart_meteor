@@ -24,7 +24,7 @@ Add the package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  dart_meteor: ^4.1.0
+  dart_meteor: ^4.2.0
 ```
 
 ## Quick start
@@ -259,6 +259,31 @@ attempts (0s, 5s, 10s, … up to `maxRetryInterval`) so an unreachable server
 does not keep the radio busy. `disconnect()` is final: the client stays offline
 until you call `reconnect()`.
 
+### Session resumption
+
+Meteor servers that include [meteor/meteor#14051](https://github.com/meteor/meteor/pull/14051)
+keep a session alive for a grace period (15 s by default,
+`Meteor.server.options.disconnectGracePeriod`) after an ungraceful disconnect.
+The client asks to resume that session on reconnect, sending its DDP session id
+and the number of messages it has received so far. If the server still has the
+session and nothing was lost in between, the reconnect is seamless:
+
+- the login is still in place — no resume-token round trip;
+- subscriptions are not re-sent, and documents published while the client was
+  away are delivered in order on the new socket;
+- method calls that were in flight stay pending and complete normally;
+- `onConnection` does not fire again on the server, and the connection id is
+  unchanged.
+
+If the server cannot resume (grace period expired, a message was lost, the
+server restarted, or it predates that change), it starts a new session and the
+client falls back to the usual reconnect: re-login, re-subscribe, and in-flight
+calls fail with `MeteorConnectionError`. `meteor.connection.resumedSession`
+tells you which happened after each reconnect.
+
+`disconnect()` sends a DDP `disconnect` message first, so the server frees the
+session immediately instead of holding it open for the grace period.
+
 The timings are configurable if the defaults do not suit your server:
 
 ```dart
@@ -327,9 +352,11 @@ same fields you get in a Meteor web client.
 
 A call that was still in flight when the connection dropped — because the
 device slept, or the network went away — throws `MeteorConnectionError`
-instead. The two are worth distinguishing: `MeteorError` means the server
-considered the request and said no, while `MeteorConnectionError` means you
-never heard back and the method may or may not have run.
+unless the session is [resumed](#session-resumption), in which case it simply
+completes once the reply arrives. The two errors are worth distinguishing:
+`MeteorError` means the server considered the request and said no, while
+`MeteorConnectionError` means you never heard back and the method may or may
+not have run.
 
 ```dart
 try {
@@ -341,14 +368,20 @@ try {
 }
 ```
 
-Calls are not resent automatically after a reconnect: a method like
-`sendMessage` is not safe to run twice, so whether to retry is left to you.
+Calls are not resent automatically when a reconnect ends up as a new session:
+a method like `sendMessage` is not safe to run twice, so whether to retry is
+left to you.
 
 ## Upgrading
 
 See [CHANGELOG.md](CHANGELOG.md) for the full history. The notable breaking
 changes:
 
+- **4.2.0** — DDP session resumption. Against a server with
+  [meteor/meteor#14051](https://github.com/meteor/meteor/pull/14051) a brief
+  network drop no longer re-runs the login, re-sends subscriptions or fails
+  in-flight method calls; `onReconnect` callbacks are not invoked on a resumed
+  session. Older servers behave exactly as before.
 - **4.1.0** — two behaviour changes worth knowing about, both fixes. A method
   call that is in flight when the connection drops now throws
   `MeteorConnectionError` instead of hanging forever, so `await meteor.call(…)`
