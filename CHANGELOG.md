@@ -7,11 +7,10 @@ DDP session resumption, matching
 Added:
 - After an unexpected disconnect the client keeps its DDP session id and asks
   the server to resume it, sending `session` and `receivedCount` in `connect`.
-  When the server agrees (same session id back) the login, subscriptions and
-  in-flight method calls carry on untouched, messages published during the
-  gap arrive in order, and `onReconnect` callbacks are not run. When it does
-  not, the reconnect proceeds exactly as before: callbacks, re-subscribe, and
-  in-flight calls fail with `MeteorConnectionError`.
+  When the server agrees (same session id back) the login and subscriptions
+  carry on untouched, messages published during the gap arrive in order, and
+  `onReconnect` callbacks are not run. When it does not, the reconnect
+  proceeds exactly as before: callbacks and re-subscribe.
 - `DdpClient.resumedSession` reports whether the latest `connected` resumed
   the previous session; `DdpClient.receivedCount` exposes the message count.
 - `disconnect()` sends a DDP `disconnect` message before closing the socket so
@@ -19,9 +18,11 @@ Added:
   period.
 
 Changed:
-- In-flight method calls are no longer failed the moment the socket drops;
-  they are failed when the reconnect results in a new session, on an explicit
-  `disconnect()`, or when the retry limit is reached.
+- In-flight method calls are failed once the reconnect completes (resumed or
+  not), on an explicit `disconnect()`, or when the retry limit is reached,
+  rather than the instant the socket drops. They still fail: a request sent
+  just before the drop may never have reached the server, and that cannot be
+  told apart from a slow method, so hanging forever is not an option.
 
 Compatibility:
 - Servers without session resumption ignore the extra fields and start a new

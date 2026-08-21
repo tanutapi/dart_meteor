@@ -243,16 +243,21 @@ void main() {
       expect(meteor.connection.receivedCount, server.sessions.single.sentCount);
     }, timeout: Timeout(Duration(seconds: 30)));
 
-    test('an in-flight method call completes after the session is resumed',
+    test('an in-flight method call fails on resume rather than hanging',
         () async {
-      server.delayedMethods['slowEcho'] = Duration(milliseconds: 600);
-      var future = meteor.apply('slowEcho', ['hello']);
+      // The request may have been lost with the socket; the client cannot
+      // tell, so it must not leave the caller waiting forever.
+      server.silentMethods.add('neverReturns');
+      var failed = expectLater(
+          meteor.call('neverReturns').timeout(Duration(seconds: 5)),
+          throwsA(isA<MeteorConnectionError>()));
       await Future.delayed(Duration(milliseconds: 100));
       server.closeAllSockets();
       await _waitForDisconnected(meteor);
+      await _waitForConnected(meteor);
 
-      expect(await future.timeout(Duration(seconds: 5)), ['hello']);
       expect(meteor.connection.resumedSession, isTrue);
+      await failed;
     }, timeout: Timeout(Duration(seconds: 30)));
 
     test('a message count mismatch starts a new session and re-subscribes',

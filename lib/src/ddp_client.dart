@@ -357,11 +357,11 @@ class DdpClient {
   /// Close the current socket and release everything attached to it, without
   /// deciding whether to reconnect.
   ///
-  /// With [keepSession] the session id, message count and in-flight method
-  /// calls survive so the next `connect` can try to resume the session; they
-  /// are dropped only if the server then answers with a new session. Without
-  /// it everything is forgotten and [reason] is reported to any in-flight
-  /// method calls.
+  /// With [keepSession] the session id and message count survive so the next
+  /// `connect` can try to resume the session. In-flight method calls are kept
+  /// until the outcome of that reconnect is known and failed then (see
+  /// [_onConnected]); without [keepSession] everything is forgotten at once
+  /// and [reason] is reported to them immediately.
   void _teardownConnection(String reason, {required bool keepSession}) {
     _pingPeriodicTimer?.cancel();
     _pingPeriodicTimer = null;
@@ -657,11 +657,15 @@ class DdpClient {
   /// Runs once the server accepted the connection.
   ///
   /// If the server handed back the session id we asked to resume, the session
-  /// continues where it left off: the login, subscriptions and any in-flight
-  /// method calls are still live on the server, so nothing is re-sent.
-  /// Otherwise this is a new session: mark the client connected, give the
-  /// reconnect callbacks a chance to restore the login, then re-send the
-  /// subscriptions.
+  /// continues where it left off: the login and subscriptions are still live
+  /// on the server, so nothing is re-sent. Otherwise this is a new session:
+  /// mark the client connected, give the reconnect callbacks a chance to
+  /// restore the login, then re-send the subscriptions.
+  ///
+  /// In-flight method calls are failed either way. A request written to the
+  /// socket just before it dropped may never have reached the server, and
+  /// there is no way to tell that apart from a slow method - so rather than
+  /// leave the caller hanging forever, report it and let them retry.
   Future<void> _onConnected(Map<String, dynamic> dataMap) async {
     var newSessionId = dataMap['session'];
     var resumed = sessionId != null && newSessionId == sessionId;
@@ -685,16 +689,18 @@ class DdpClient {
       _sendMsgPing();
     });
 
+    _failAllPendingMethodCalls(resumed
+        ? 'Connection dropped while the call was in flight'
+        : 'Connection was re-established as a new session');
+
     if (resumed) {
       printDebug('Resumed DDP session $sessionId');
       return;
     }
 
     // New session: the 'connected' message itself is the first counted
-    // message, and anything that was in flight on the old session is gone.
+    // message.
     _receivedCount = 1;
-    _failAllPendingMethodCalls(
-        'Connection was re-established as a new session');
 
     var callbacks = List<OnReconnectionCallback>.from(
       _onReconnectCallbacks.values,
