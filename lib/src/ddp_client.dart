@@ -138,6 +138,16 @@ class DdpClient {
   final Map<String, OnReconnectionCallback> _onReconnectCallbacks = {};
   String? serverId;
   String? sessionId;
+
+  /// Number of DDP messages received from the server in the current session,
+  /// excluding `ping`/`pong` (and the pre-session `server_id` frame). Sent with
+  /// `connect` so a server that supports session resumption (Meteor PR #14051)
+  /// can verify nothing was lost while we were away.
+  int _receivedCount = 0;
+
+  /// Whether the most recent `connected` message resumed the previous session
+  /// rather than starting a new one.
+  bool _lastConnectResumedSession = false;
   int _currentMethodId = 0;
   Timer? _pingPeriodicTimer;
   Timer? _pongTimeoutTimer;
@@ -162,7 +172,8 @@ class DdpClient {
     Duration? stalenessThreshold,
   })  : pingInterval =
             pingInterval ?? const Duration(seconds: pingIntervalSeconds),
-        pongTimeout = pongTimeout ?? const Duration(seconds: pongTimeoutSeconds),
+        pongTimeout =
+            pongTimeout ?? const Duration(seconds: pongTimeoutSeconds),
         maxRetryInterval = maxRetryInterval ?? const Duration(seconds: 30),
         stalenessThreshold = stalenessThreshold ??
             Duration(
@@ -299,9 +310,8 @@ class DdpClient {
     }
     if (_connectionStatus.status == DdpConnectionStatusValues.connected) {
       var last = _lastMessageReceivedAt;
-      var silentFor = last == null
-          ? stalenessThreshold
-          : DateTime.now().difference(last);
+      var silentFor =
+          last == null ? stalenessThreshold : DateTime.now().difference(last);
       if (silentFor >= stalenessThreshold) {
         printDebug(
           'Connection considered stale - nothing received for $silentFor',
@@ -317,13 +327,25 @@ class DdpClient {
     _connect();
   }
 
+  /// `true` if the last `connected` message from the server resumed the
+  /// previous DDP session (same session id, no data lost), `false` if it
+  /// started a fresh one. Only meaningful while connected.
+  bool get resumedSession => _lastConnectResumedSession;
+
+  /// Messages received from the server in this session, excluding ping/pong.
+  /// Exposed for tests and diagnostics.
+  int get receivedCount => _receivedCount;
+
   /// Disconnect the client from the server. The client stays offline until
   /// [reconnect] is called.
   void disconnect() {
     printDebug('Begin of disconnect()');
     _isTryToReconnect = false;
     _cancelScheduledReconnect();
-    _teardownConnection('Disconnected by the client');
+    // Tell the server this is intentional so it drops the session right away
+    // instead of holding it open for the resumption grace period.
+    _sendMsgDisconnect();
+    _teardownConnection('Disconnected by the client', keepSession: false);
     _connectionStatus.retryCount = 0;
     _connectionStatus.connected = false;
     _connectionStatus.status = DdpConnectionStatusValues.offline;
@@ -333,9 +355,14 @@ class DdpClient {
   }
 
   /// Close the current socket and release everything attached to it, without
-  /// deciding whether to reconnect. [reason] is reported to any in-flight
-  /// method calls.
-  void _teardownConnection(String reason) {
+  /// deciding whether to reconnect.
+  ///
+  /// With [keepSession] the session id and message count survive so the next
+  /// `connect` can try to resume the session. In-flight method calls are kept
+  /// until the outcome of that reconnect is known and failed then (see
+  /// [_onConnected]); without [keepSession] everything is forgotten at once
+  /// and [reason] is reported to them immediately.
+  void _teardownConnection(String reason, {required bool keepSession}) {
     _pingPeriodicTimer?.cancel();
     _pingPeriodicTimer = null;
     _pongTimeoutTimer?.cancel();
@@ -356,9 +383,17 @@ class DdpClient {
     }
 
     serverId = null;
-    sessionId = null;
     _lastMessageReceivedAt = null;
-    _failAllPendingMethodCalls(reason);
+    if (!keepSession) {
+      _forgetSession();
+      _failAllPendingMethodCalls(reason);
+    }
+  }
+
+  void _forgetSession() {
+    sessionId = null;
+    _receivedCount = 0;
+    _lastConnectResumedSession = false;
   }
 
   /// Handle a connection that dropped on its own (socket closed, error, or a
@@ -370,7 +405,7 @@ class DdpClient {
       return;
     }
     printDebug('Connection lost: $reason');
-    _teardownConnection(reason);
+    _teardownConnection(reason, keepSession: true);
     _connectionStatus.connected = false;
     _connectionStatus.status = DdpConnectionStatusValues.offline;
     _connectionStatus.reason = reason;
@@ -491,6 +526,7 @@ class DdpClient {
       _connectionStatus.status = DdpConnectionStatusValues.failed;
       _connectionStatus.reason = 'DDP. Reach max retry attempt';
       _emitStatus();
+      _failAllPendingMethodCalls('DDP. Reach max retry attempt');
     }
   }
 
@@ -511,11 +547,28 @@ class DdpClient {
         'support': ['1', 'pre1', 'pre2'],
       };
       if (sessionId != null) {
+        // Ask to resume. The server only does so if it still has the session
+        // and its sent count equals our received count; otherwise it starts
+        // a new session. Servers without resumption support ignore both.
         data['session'] = sessionId!;
+        data['receivedCount'] = _receivedCount;
       }
       var msg = json.encode(data);
       printDebug('Send: $msg');
       _socket!.sink.add(msg);
+    }
+  }
+
+  void _sendMsgDisconnect() {
+    var socket = _socket;
+    if (socket != null && _connectionStatus.connected) {
+      var msg = json.encode({'msg': 'disconnect'});
+      printDebug('Send: $msg');
+      try {
+        socket.sink.add(msg);
+      } catch (err) {
+        printDebug('Failed to send disconnect: $err');
+      }
     }
   }
 
@@ -601,17 +654,30 @@ class DdpClient {
     }
   }
 
-  /// Runs once the server accepted the connection: mark the client connected,
-  /// give the reconnect callbacks a chance to restore the login, then re-send
-  /// the subscriptions.
+  /// Runs once the server accepted the connection.
+  ///
+  /// If the server handed back the session id we asked to resume, the session
+  /// continues where it left off: the login and subscriptions are still live
+  /// on the server, so nothing is re-sent. Otherwise this is a new session:
+  /// mark the client connected, give the reconnect callbacks a chance to
+  /// restore the login, then re-send the subscriptions.
+  ///
+  /// In-flight method calls are failed either way. A request written to the
+  /// socket just before it dropped may never have reached the server, and
+  /// there is no way to tell that apart from a slow method - so rather than
+  /// leave the caller hanging forever, report it and let them retry.
   Future<void> _onConnected(Map<String, dynamic> dataMap) async {
+    var newSessionId = dataMap['session'];
+    var resumed = sessionId != null && newSessionId == sessionId;
+    _lastConnectResumedSession = resumed;
+    sessionId = newSessionId;
+
     _connectionStatus.connected = true;
     _connectionStatus.status = DdpConnectionStatusValues.connected;
     _connectionStatus.reason = null;
     _connectionStatus.retryCount = 0;
     _connectionStatus.retryTime = Duration(seconds: 0);
     _emitStatus();
-    sessionId = dataMap['session'];
 
     _pingPeriodicTimer?.cancel();
     _pingPeriodicTimer = Timer.periodic(pingInterval, (timer) {
@@ -622,6 +688,19 @@ class DdpClient {
       }
       _sendMsgPing();
     });
+
+    _failAllPendingMethodCalls(resumed
+        ? 'Connection dropped while the call was in flight'
+        : 'Connection was re-established as a new session');
+
+    if (resumed) {
+      printDebug('Resumed DDP session $sessionId');
+      return;
+    }
+
+    // New session: the 'connected' message itself is the first counted
+    // message.
+    _receivedCount = 1;
 
     var callbacks = List<OnReconnectionCallback>.from(
       _onReconnectCallbacks.values,
@@ -655,6 +734,11 @@ class DdpClient {
       _pongTimeoutTimer = null;
       return;
     }
+    if (msg != null) {
+      // Mirrors the server's sentCount: every real DDP message counts, the
+      // pre-session `server_id` frame (no `msg` field) and ping/pong do not.
+      _receivedCount++;
+    }
     if (_connectionStatus.status == DdpConnectionStatusValues.connecting) {
       if (dataMap['server_id'] != null) {
         serverId = dataMap['server_id'];
@@ -665,7 +749,7 @@ class DdpClient {
         unawaited(_onConnected(dataMap));
       } else if (msg == 'failed') {
         serverId = null;
-        sessionId = null;
+        _forgetSession();
         _connectionStatus.connected = false;
         _connectionStatus.status = DdpConnectionStatusValues.failed;
         _connectionStatus.reason =
@@ -790,7 +874,7 @@ class DdpClient {
     if (_isTryToReconnect) {
       _handleConnectionLost('The websocket was closed by the other side');
     } else {
-      _teardownConnection('The websocket was closed');
+      _teardownConnection('The websocket was closed', keepSession: false);
     }
   }
 
@@ -798,7 +882,7 @@ class DdpClient {
     if (_isTryToReconnect) {
       _handleConnectionLost('Websocket error: $error');
     } else {
-      _teardownConnection('Websocket error: $error');
+      _teardownConnection('Websocket error: $error', keepSession: false);
     }
   }
 }

@@ -4,15 +4,67 @@
 /// needs a real Meteor server or docker.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+/// Server-side state of one DDP session, modelled on `Session` in Meteor's
+/// `ddp-server/livedata_server.js` after session resumption landed
+/// (meteor/meteor#14051).
+class MockDdpSession {
+  MockDdpSession(this.id);
+
+  final String id;
+  WebSocket? socket;
+
+  /// Messages sent on this session excluding ping/pong, compared against the
+  /// client's `receivedCount` on reconnect.
+  int sentCount = 0;
+
+  /// Non-null while the session is disconnected and waiting to be resumed.
+  List<Map<String, dynamic>>? messageQueue;
+  Timer? removeTimer;
+
+  /// Set by a client `disconnect` message; such a session is never resumed.
+  bool expectingDisconnect = false;
+
+  /// Ids of the subscriptions the client has open on this session.
+  final Set<String> subscriptionIds = {};
+}
+
 class MockDdpServer {
   HttpServer? _httpServer;
   final List<WebSocket> _sockets = [];
+  final Map<WebSocket, MockDdpSession> _sessionBySocket = {};
+  final Map<String, MockDdpSession> _sessions = {};
+  int _sessionCounter = 0;
   int? _boundPort;
+
+  /// When true the server behaves like Meteor with meteor/meteor#14051: an
+  /// ungracefully dropped session is kept for [disconnectGracePeriod] and
+  /// resumed if the client reconnects with the same session id and a matching
+  /// message count. When false (default) every connect starts a new session,
+  /// like Meteor releases before that change.
+  bool supportsResumption = false;
+
+  /// How long a dropped session is kept around for resumption.
+  Duration disconnectGracePeriod = const Duration(seconds: 15);
+
+  /// Messages queued for a dropped session before it is given up on.
+  int maxMessageQueueLength = 100;
+
+  /// Session ids handed out by `connected`, in order. A resumed session
+  /// repeats the previous id.
+  final List<String> sessionIdsSent = [];
+
+  /// How many sessions were created (resumptions do not count), i.e. how many
+  /// times `onConnection` would have fired on a real server.
+  int sessionCount = 0;
+
+  /// Sessions currently known to the server, live or awaiting resumption.
+  Iterable<MockDdpSession> get sessions => _sessions.values;
 
   /// The port the server is (or last was) bound to. Stable across a
   /// [stop]/[start] cycle so tests can simulate a server outage.
@@ -39,6 +91,10 @@ class MockDdpServer {
   /// Methods named here are accepted but never answered, so the client is
   /// left with an in-flight call.
   final Set<String> silentMethods = {};
+
+  /// Methods named here are answered only after the given delay, so a result
+  /// can land while the client is disconnected.
+  final Map<String, Duration> delayedMethods = {};
 
   /// How many websocket connections have been accepted over this server's
   /// lifetime, including across restarts.
@@ -67,7 +123,7 @@ class MockDdpServer {
         // Meteor sends server_id as the very first message on the socket.
         socket.add(json.encode({'server_id': '0'}));
         socket.listen((data) => _onMessage(socket, inbox, data),
-            onDone: () => _sockets.remove(socket));
+            onDone: () => _onSocketClosed(socket));
       } else {
         req.response.statusCode = HttpStatus.notFound;
         await req.response.close();
@@ -80,18 +136,136 @@ class MockDdpServer {
       await socket.close();
     }
     _sockets.clear();
+    for (var session in _sessions.values) {
+      session.removeTimer?.cancel();
+    }
+    _sessions.clear();
+    _sessionBySocket.clear();
     await _httpServer?.close(force: true);
     _httpServer = null;
   }
 
+  /// Drop every socket without warning - what the client sees on a network
+  /// loss. Sessions stay resumable if [supportsResumption] is on.
   void closeAllSockets() {
     for (var socket in List<WebSocket>.from(_sockets)) {
+      // Detach synchronously: a real server notices its own close at once,
+      // whereas the websocket's onDone only fires after the close handshake,
+      // by which time a fast client may already be reconnecting.
+      _onSocketClosed(socket);
       socket.close();
     }
     _sockets.clear();
   }
 
+  /// Server-initiated close of every session (`connection.close()` on the
+  /// server). Never resumable, regardless of [supportsResumption].
+  void closeAllSessions() {
+    for (var session in List<MockDdpSession>.from(_sessions.values)) {
+      session.expectingDisconnect = true;
+      _destroySession(session);
+    }
+    closeAllSockets();
+  }
+
+  void _onSocketClosed(WebSocket socket) {
+    _sockets.remove(socket);
+    var session = _sessionBySocket.remove(socket);
+    if (session == null || session.socket != socket) {
+      return;
+    }
+    session.socket = null;
+    if (!supportsResumption || session.expectingDisconnect) {
+      _destroySession(session);
+      return;
+    }
+    // Ungraceful disconnect: queue outgoing messages and wait for a resume.
+    session.messageQueue = [];
+    session.removeTimer?.cancel();
+    session.removeTimer =
+        Timer(disconnectGracePeriod, () => _destroySession(session));
+  }
+
+  void _destroySession(MockDdpSession session) {
+    session.removeTimer?.cancel();
+    session.removeTimer = null;
+    session.messageQueue = null;
+    _sessions.remove(session.id);
+  }
+
+  void _handleConnect(WebSocket socket, Map<String, dynamic> msg) {
+    if (msg['version'] != '1' || !(msg['support'] as List).contains('1')) {
+      _sendRaw(socket, {'msg': 'failed', 'version': '1'});
+      return;
+    }
+    var existing = _sessions[msg['session']];
+    var resumable = supportsResumption &&
+        existing != null &&
+        existing.socket == null &&
+        existing.removeTimer != null &&
+        !existing.expectingDisconnect &&
+        existing.sentCount == msg['receivedCount'];
+    if (resumable) {
+      existing.removeTimer?.cancel();
+      existing.removeTimer = null;
+      var queue = existing.messageQueue ?? const [];
+      existing.messageQueue = null;
+      existing.socket = socket;
+      _sessionBySocket[socket] = existing;
+      sessionIdsSent.add(existing.id);
+      _sendOn(existing, {'msg': 'connected', 'session': existing.id});
+      for (var queued in queue) {
+        _sendOn(existing, queued);
+      }
+      return;
+    }
+    if (existing != null) {
+      // Out of date (or not resumable) - drop the old session immediately.
+      _destroySession(existing);
+    }
+    var session = MockDdpSession('mock-session-${++_sessionCounter}');
+    session.socket = socket;
+    _sessions[session.id] = session;
+    _sessionBySocket[socket] = session;
+    sessionCount++;
+    sessionIdsSent.add(session.id);
+    _sendOn(session, {'msg': 'connected', 'session': session.id});
+  }
+
+  /// Send on the session a socket belongs to, so the message is counted and,
+  /// while the session is disconnected, queued.
   void _send(WebSocket socket, Map<String, dynamic> msg) {
+    var session = _sessionBySocket[socket];
+    if (session == null) {
+      _sendRaw(socket, msg);
+      return;
+    }
+    _sendOn(session, msg);
+  }
+
+  void _sendOn(MockDdpSession session, Map<String, dynamic> msg) {
+    var counted = msg['msg'] != 'ping' && msg['msg'] != 'pong';
+    var queue = session.messageQueue;
+    if (queue != null) {
+      if (counted) {
+        queue.add(msg);
+        if (queue.length > maxMessageQueueLength) {
+          _destroySession(session);
+        }
+      }
+      return;
+    }
+    var socket = session.socket;
+    if (socket == null) {
+      return;
+    }
+    if (counted) {
+      session.sentCount++;
+    }
+    _sendRaw(socket, msg);
+  }
+
+  void _sendRaw(WebSocket socket, Map<String, dynamic> msg) {
     // A message can be in flight when the test closes the socket underneath
     // us; a real server would just drop it.
     if (socket.readyState != WebSocket.open) {
@@ -110,15 +284,17 @@ class MockDdpServer {
     inbox.add(msg);
     switch (msg['msg']) {
       case 'connect':
-        if ((msg['version'] == '1') && (msg['support'] as List).contains('1')) {
-          _send(socket, {'msg': 'connected', 'session': 'mock-session-id'});
-        } else {
-          _send(socket, {'msg': 'failed', 'version': '1'});
-        }
+        _handleConnect(socket, msg);
+        break;
+      case 'disconnect':
+        // Graceful disconnect: the session is torn down as soon as the
+        // socket goes, never resumed.
+        _sessionBySocket[socket]?.expectingDisconnect = true;
         break;
       case 'ping':
         if (respondToPings) {
-          _send(socket, {'msg': 'pong', if (msg['id'] != null) 'id': msg['id']});
+          _send(
+              socket, {'msg': 'pong', if (msg['id'] != null) 'id': msg['id']});
         }
         break;
       case 'pong':
@@ -127,9 +303,11 @@ class MockDdpServer {
         _handleMethod(socket, msg);
         break;
       case 'sub':
+        _sessionBySocket[socket]?.subscriptionIds.add(msg['id']);
         _handleSub(socket, msg);
         break;
       case 'unsub':
+        _sessionBySocket[socket]?.subscriptionIds.remove(msg['id']);
         _send(socket, {'msg': 'nosub', 'id': msg['id']});
         break;
     }
@@ -140,6 +318,20 @@ class MockDdpServer {
     var id = msg['id'];
     var params = msg['params'] as List? ?? [];
     if (silentMethods.contains(msg['method'])) {
+      return;
+    }
+    var delay = delayedMethods[msg['method']];
+    if (delay != null) {
+      var session = _sessionBySocket[socket];
+      Timer(delay, () {
+        if (session != null) {
+          _sendOn(session, {'msg': 'result', 'id': id, 'result': params});
+          _sendOn(session, {
+            'msg': 'updated',
+            'methods': [id]
+          });
+        }
+      });
       return;
     }
     switch (msg['method']) {
@@ -271,10 +463,12 @@ class MockDdpServer {
     }
   }
 
-  /// Push a change on the `items` collection to every connected client.
+  /// Push a message to every session, live or waiting to be resumed (for
+  /// the latter it is queued, exactly like an observe callback firing during
+  /// the grace period).
   void broadcast(Map<String, dynamic> msg) {
-    for (var socket in _sockets) {
-      _send(socket, msg);
+    for (var session in List<MockDdpSession>.from(_sessions.values)) {
+      _sendOn(session, msg);
     }
   }
 }
