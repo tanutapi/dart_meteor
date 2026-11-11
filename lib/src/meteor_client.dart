@@ -204,14 +204,13 @@ class MeteorClient {
       }
     });
 
-    userId().listen((userId) {
-      if (_collections['users'] != null &&
-          _collections['users']![userId] != null) {
-        _userSubject.add(_collections['users']![userId]);
-      } else {
-        _userSubject.add(null);
-      }
-    });
+  }
+
+  /// Emit the current [_userId] and, in the same step, the matching user
+  /// document, so `userCurrentValue()` is already set when a login resolves.
+  void _emitUserId() {
+    _userIdSubject.add(_userId);
+    _userSubject.add(_userId == null ? null : _collections['users']![_userId]);
   }
 
   void _prepareCollection(String collectionName) {
@@ -433,7 +432,7 @@ class MeteorClient {
       _tokenExpires = null;
       _logInStatus = UserLogInStatus.loggedOut;
       _logInStatusSubject.add(_logInStatus);
-      _userIdSubject.add(_userId);
+      _emitUserId();
       completer.complete();
     }).catchError((error) {
       _userId = null;
@@ -441,7 +440,7 @@ class MeteorClient {
       _tokenExpires = null;
       _logInStatus = UserLogInStatus.loggedOut;
       _logInStatusSubject.add(_logInStatus);
-      _userIdSubject.add(_userId);
+      _emitUserId();
       connection.disconnect();
       Future.delayed(Duration(seconds: 2), () {
         connection.reconnect();
@@ -461,7 +460,7 @@ class MeteorClient {
       _tokenExpires = result['tokenExpires'];
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
-      _userIdSubject.add(_userId);
+      _emitUserId();
       call('removeOtherTokens').then((value) {
         completer.complete(MeteorClientLoginResult(
           userId: _userId!,
@@ -555,7 +554,7 @@ class MeteorClient {
       _tokenExpires = result['tokenExpires'];
       _logInStatus = UserLogInStatus.loggedIn;
       _logInStatusSubject.add(_logInStatus);
-      _userIdSubject.add(_userId);
+      _emitUserId();
       completer.complete(MeteorClientLoginResult(
         userId: _userId!,
         token: _token!,
@@ -568,7 +567,7 @@ class MeteorClient {
         _tokenExpires = null;
         _logInStatus = UserLogInStatus.loggedOut;
         _logInStatusSubject.add(_logInStatus);
-        _userIdSubject.add(_userId);
+        _emitUserId();
         completer.completeError(error);
       });
     });
