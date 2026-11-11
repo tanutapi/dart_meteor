@@ -94,14 +94,60 @@ void main() {
           json.encode(server.lastLoginRequest), isNot(contains('password1')));
     });
 
+    // https://github.com/tanutapi/dart_meteor/issues/76
+    test('the user document is available as soon as login resolves',
+        () async {
+      await meteor.loginWithPassword('user1', 'password1');
+      expect(meteor.userIdCurrentValue(), 'user1-id');
+      expect(meteor.userCurrentValue(), isNotNull);
+      expect(meteor.userCurrentValue()!['username'], 'user1');
+    });
+
+    test('a method resolves only after its updated message', () async {
+      server.withholdUpdated = true;
+      var resolved = false;
+      var call = meteor.call('methodThatReturnNumber').then((value) {
+        resolved = true;
+        return value;
+      });
+      await Future.delayed(Duration(milliseconds: 200));
+      expect(resolved, isFalse);
+      server.releaseUpdated();
+      expect(await call, 42);
+    });
+
     test('bad login rejects with MeteorError 403', () async {
       try {
         await meteor.loginWithPassword('user1', 'wrong-password');
         fail('expected MeteorError');
       } on MeteorError catch (e) {
         expect(e.error, 403);
-        expect(e.reason, 'Incorrect password');
+        expect(e.reason, MockDdpServer.badCredentialsReason);
       }
+      expect(meteor.userIdCurrentValue(), isNull);
+      expect(meteor.userCurrentValue(), isNull);
+    });
+
+    test('unknown username rejects with MeteorError 403', () async {
+      try {
+        await meteor.loginWithPassword('no-such-user', 'password1');
+        fail('expected MeteorError');
+      } on MeteorError catch (e) {
+        expect(e.error, 403);
+        expect(e.reason, MockDdpServer.badCredentialsReason);
+      }
+      expect(meteor.userIdCurrentValue(), isNull);
+      expect(meteor.userCurrentValue(), isNull);
+    });
+
+    test('a correct login after a failed one sets the user', () async {
+      await expectLater(
+        meteor.loginWithPassword('user1', 'wrong-password'),
+        throwsA(isA<MeteorError>()),
+      );
+      await meteor.loginWithPassword('user1', 'password1');
+      expect(meteor.userIdCurrentValue(), 'user1-id');
+      expect(meteor.userCurrentValue()!['username'], 'user1');
     });
 
     test('loginWithToken resumes the session', () async {

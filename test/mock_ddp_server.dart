@@ -25,6 +25,10 @@ class MockDdpServer {
   static final String user1Digest =
       sha256.convert(utf8.encode('password1')).toString();
 
+  /// Reason Meteor 3 gives for any failed password login.
+  static const String badCredentialsReason =
+      'Something went wrong. Please check your credentials.';
+
   /// The last login request received, for asserting on the wire format.
   Map<String, dynamic>? lastLoginRequest;
 
@@ -91,7 +95,26 @@ class MockDdpServer {
     _sockets.clear();
   }
 
+  /// When true, `updated` messages are queued instead of sent, until
+  /// [releaseUpdated] is called. Used to prove a call waits for `updated`.
+  bool withholdUpdated = false;
+  final List<(WebSocket, Map<String, dynamic>)> _withheldUpdated = [];
+
+  /// Send every `updated` message held back by [withholdUpdated].
+  void releaseUpdated() {
+    withholdUpdated = false;
+    var held = List.of(_withheldUpdated);
+    _withheldUpdated.clear();
+    for (var (socket, msg) in held) {
+      _send(socket, msg);
+    }
+  }
+
   void _send(WebSocket socket, Map<String, dynamic> msg) {
+    if (withholdUpdated && msg['msg'] == 'updated') {
+      _withheldUpdated.add((socket, msg));
+      return;
+    }
     // A message can be in flight when the test closes the socket underneath
     // us; a real server would just drop it.
     if (socket.readyState != WebSocket.open) {
@@ -150,7 +173,10 @@ class MockDdpServer {
         lastLoginRequest = loginData;
         var password = loginData['password'];
         var resume = loginData['resume'];
-        var validPassword = password is Map &&
+        var user = loginData['user'];
+        var validPassword = user is Map &&
+            user['username'] == 'user1' &&
+            password is Map &&
             password['algorithm'] == 'sha-256' &&
             password['digest'] == user1Digest;
         var validResume = resume == 'valid-resume-token';
@@ -168,19 +194,33 @@ class MockDdpServer {
               },
             },
           });
+          // A real server publishes the logged-in user's document after the
+          // result and before `updated`.
+          _send(socket, {
+            'msg': 'added',
+            'collection': 'users',
+            'id': 'user1-id',
+            'fields': {'username': 'user1'},
+          });
           _send(socket, {
             'msg': 'updated',
             'methods': [id]
           });
         } else {
+          // Meteor 3 sends `updated` before the error `result`, and gives
+          // the same reason for a wrong password and an unknown user.
+          _send(socket, {
+            'msg': 'updated',
+            'methods': [id]
+          });
           _send(socket, {
             'msg': 'result',
             'id': id,
             'error': {
               'isClientSafe': true,
               'error': 403,
-              'reason': 'Incorrect password',
-              'message': 'Incorrect password [403]',
+              'reason': badCredentialsReason,
+              'message': '$badCredentialsReason [403]',
               'errorType': 'Meteor.Error',
             },
           });

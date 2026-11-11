@@ -143,6 +143,12 @@ class DdpClient {
   Timer? _pongTimeoutTimer;
   DateTime? _lastMessageReceivedAt;
   final Map<String, Completer<dynamic>> _methodCompleters = {};
+
+  /// Results received for calls whose `updated` message has not arrived yet.
+  final Map<String, dynamic> _resultsAwaitingUpdated = {};
+
+  /// Calls whose `updated` message arrived before their `result`.
+  final Set<String> _updatedBeforeResult = {};
   final Map<String, SubscriptionCallback> _subscriptions = {};
   final Map<String, SubscriptionHandler> _subscriptionHandlers = {};
   bool _isTryToReconnect = true;
@@ -381,6 +387,8 @@ class DdpClient {
   }
 
   void _failMethodCall(String id, String reason) {
+    _resultsAwaitingUpdated.remove(id);
+    _updatedBeforeResult.remove(id);
     var completer = _methodCompleters.remove(id);
     if (completer != null && !completer.isCompleted) {
       completer.completeError(MeteorConnectionError(reason));
@@ -388,6 +396,8 @@ class DdpClient {
   }
 
   void _failAllPendingMethodCalls(String reason) {
+    _resultsAwaitingUpdated.clear();
+    _updatedBeforeResult.clear();
     if (_methodCompleters.isEmpty) {
       return;
     }
@@ -715,24 +725,38 @@ class DdpClient {
       } else if (msg == 'addedBefore') {
       } else if (msg == 'movedBefore') {
       } else if (msg == 'result') {
+        // Like Meteor's own client, a successful call resolves only once both
+        // its `result` and its `updated` message have arrived, so any data the
+        // method wrote (e.g. the user document after `login`) is already in
+        // the local collections. Errors resolve straight away.
         if (dataMap['id'] != null) {
           String id = dataMap['id'];
-          var completer = _methodCompleters.remove(id);
-          if (completer != null) {
-            if (dataMap['error'] != null) {
-              completer.completeError(dataMap['error']);
-            } else {
-              DdpClient.formatSpecialFieldValues(dataMap);
-              var result = dataMap['result'];
-              completer.complete(result);
-            }
-          } else {
+          if (!_methodCompleters.containsKey(id)) {
             printDebug('No method completer found!');
+          } else if (dataMap['error'] != null) {
+            _updatedBeforeResult.remove(id);
+            _methodCompleters.remove(id)!.completeError(dataMap['error']);
+          } else {
+            DdpClient.formatSpecialFieldValues(dataMap);
+            var result = dataMap['result'];
+            if (_updatedBeforeResult.remove(id)) {
+              _methodCompleters.remove(id)!.complete(result);
+            } else {
+              _resultsAwaitingUpdated[id] = result;
+            }
           }
         }
       } else if (msg == 'updated') {
-        List methodIds = dataMap['methods'];
+        List methodIds = dataMap['methods'] ?? const [];
         printDebug(methodIds.toString());
+        for (var id in methodIds) {
+          if (_resultsAwaitingUpdated.containsKey(id)) {
+            var result = _resultsAwaitingUpdated.remove(id);
+            _methodCompleters.remove(id)?.complete(result);
+          } else if (_methodCompleters.containsKey(id)) {
+            _updatedBeforeResult.add(id);
+          }
+        }
       }
     }
   }

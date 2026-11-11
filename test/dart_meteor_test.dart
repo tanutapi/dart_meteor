@@ -7,12 +7,16 @@ import 'package:test/test.dart';
 
 var url = 'ws://127.0.0.1:3000';
 
-/// `login` resolves as soon as the method returns, but the user document
-/// arrives afterwards as a separate DDP `added` message on the `users`
-/// collection - measured at ~30ms against a local Meteor 3.x server. That
-/// matches Meteor's own semantics, where `userId` is available immediately
-/// and `user()` is reactive, so a test must await the document rather than
-/// read it synchronously.
+/// `login` resolves only after the server's `updated` message, by which point
+/// the user document has arrived, so `userCurrentValue()` is set straight away
+/// (issue #76). Other calls such as `logoutOtherClients` make the server
+/// re-publish the user document, so tests still await it in those cases.
+/// Meteor 3 gives one ambiguous reason for both a wrong password and an
+/// unknown user (`Accounts.config({ambiguousErrorMessages: true})`, the
+/// default).
+const _badCredentialsReason =
+    'Something went wrong. Please check your credentials.';
+
 Future<void> _awaitUserDocument(MeteorClient meteor) async {
   await meteor
       .user()
@@ -237,6 +241,53 @@ void main() {
       print('MeteorClientLoginResult: $result');
       print('UserID: ${meteor.userIdCurrentValue()}');
       expect(meteor.userIdCurrentValue(), isNotNull);
+    });
+
+    // https://github.com/tanutapi/dart_meteor/issues/76
+    test('meteor.userCurrentValue is set when loginWithPassword resolves',
+        () async {
+      var result = await meteor.loginWithPassword('user1', 'password1');
+      var user = meteor.userCurrentValue();
+      expect(user, isNotNull);
+      expect(user!['_id'], result.userId);
+    });
+
+    test('loginWithPassword with a wrong password rejects and clears the user',
+        () async {
+      try {
+        await meteor.loginWithPassword('user1', 'wrong-password');
+        fail('expected MeteorError');
+      } on MeteorError catch (e) {
+        expect(e.error, 403);
+        expect(e.reason, _badCredentialsReason);
+      }
+      expect(meteor.userIdCurrentValue(), isNull);
+      expect(meteor.userCurrentValue(), isNull);
+      expect(await meteor.logInStatus().first, UserLogInStatus.loggedOut);
+    });
+
+    test('loginWithPassword with an unknown username rejects', () async {
+      try {
+        await meteor.loginWithPassword('no-such-user', 'password1');
+        fail('expected MeteorError');
+      } on MeteorError catch (e) {
+        // Same reason as a wrong password, so usernames can't be probed.
+        expect(e.error, 403);
+        expect(e.reason, _badCredentialsReason);
+      }
+      expect(meteor.userIdCurrentValue(), isNull);
+      expect(meteor.userCurrentValue(), isNull);
+    });
+
+    test('a correct login after a failed one sets the user', () async {
+      await expectLater(
+        meteor.loginWithPassword('user1', 'wrong-password'),
+        throwsA(isA<MeteorError>()),
+      );
+      var result = await meteor.loginWithPassword('user1', 'password1');
+      expect(meteor.userIdCurrentValue(), result.userId);
+      expect(meteor.userCurrentValue(), isNotNull);
+      expect(meteor.userCurrentValue()!['_id'], result.userId);
     });
 
     test('meteor.logout', () async {
